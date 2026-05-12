@@ -53,9 +53,9 @@ function mix(a, b, t) {
 
 function gradient(t) {
   const stops = [
-    { t: 0, c: [87, 75, 255] },
-    { t: 0.55, c: [21, 94, 239] },
-    { t: 1, c: [0, 168, 232] }
+    { t: 0, c: [16, 24, 40] },
+    { t: 0.56, c: [23, 37, 84] },
+    { t: 1, c: [14, 116, 144] }
   ];
   const left = t < stops[1].t ? stops[0] : stops[1];
   const right = t < stops[1].t ? stops[1] : stops[2];
@@ -140,18 +140,15 @@ function render(size) {
   const s = size / 128;
   const scaleRect = (x, y, w, h) => ({ x: x * s, y: y * s, w: w * s, h: h * s });
 
-  drawRoundedRect(pixels, size, size, scaleRect(6, 6, 116, 116), 28 * s, (x, y) => {
+  drawRoundedRect(pixels, size, size, scaleRect(7, 7, 114, 114), 28 * s, (x, y) => {
     const t = Math.min(1, Math.max(0, (x + y) / (size * 2)));
     return [...gradient(t), 1];
   });
 
-  drawRoundedRect(pixels, size, size, scaleRect(27, 28, 74, 72), 18 * s, [255, 255, 255, 1]);
-  drawRoundedRect(pixels, size, size, scaleRect(38, 44, 40, 9), 4.5 * s, [16, 27, 54, 1]);
-  drawRoundedRect(pixels, size, size, scaleRect(38, 62, 52, 8), 4 * s, [50, 71, 110, 1]);
-  drawRoundedRect(pixels, size, size, scaleRect(38, 78, 32, 8), 4 * s, [114, 134, 172, 1]);
-  drawLine(pixels, size, size, 82 * s, 74 * s, 93 * s, 85 * s, 9 * s, [21, 94, 239, 1]);
-  drawLine(pixels, size, size, 93 * s, 85 * s, 82 * s, 96 * s, 9 * s, [21, 94, 239, 1]);
-  drawCircle(pixels, size, size, 97 * s, 30 * s, 7 * s, [255, 255, 255, 1]);
+  drawRoundedRect(pixels, size, size, scaleRect(26, 24, 76, 8), 4 * s, [34, 211, 238, 1]);
+  drawLine(pixels, size, size, 35 * s, 40 * s, 61 * s, 64 * s, 14 * s, [248, 250, 252, 1]);
+  drawLine(pixels, size, size, 61 * s, 64 * s, 35 * s, 88 * s, 14 * s, [248, 250, 252, 1]);
+  drawRoundedRect(pixels, size, size, scaleRect(70, 78, 31, 13), 6.5 * s, [34, 211, 238, 1]);
 
   return pixels;
 }
