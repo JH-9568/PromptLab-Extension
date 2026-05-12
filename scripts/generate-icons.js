@@ -53,9 +53,9 @@ function mix(a, b, t) {
 
 function gradient(t) {
   const stops = [
-    { t: 0, c: [109, 94, 246] },
-    { t: 0.55, c: [35, 104, 242] },
-    { t: 1, c: [6, 182, 212] }
+    { t: 0, c: [87, 75, 255] },
+    { t: 0.55, c: [21, 94, 239] },
+    { t: 1, c: [0, 168, 232] }
   ];
   const left = t < stops[1].t ? stops[0] : stops[1];
   const right = t < stops[1].t ? stops[1] : stops[2];
@@ -140,24 +140,18 @@ function render(size) {
   const s = size / 128;
   const scaleRect = (x, y, w, h) => ({ x: x * s, y: y * s, w: w * s, h: h * s });
 
-  drawRoundedRect(pixels, size, size, scaleRect(7, 7, 114, 114), 30 * s, (x, y) => {
+  drawRoundedRect(pixels, size, size, scaleRect(6, 6, 116, 116), 28 * s, (x, y) => {
     const t = Math.min(1, Math.max(0, (x + y) / (size * 2)));
     return [...gradient(t), 1];
   });
 
-  drawCircle(pixels, size, size, 96 * s, 31 * s, 10 * s, [255, 255, 255, 0.22]);
-  drawCircle(pixels, size, size, 36 * s, 104 * s, 17 * s, [255, 255, 255, 0.12]);
-
-  drawRoundedRect(pixels, size, size, scaleRect(29, 31, 70, 66), 18 * s, (x, y) => {
-    const t = Math.min(1, Math.max(0, (x - 29 * s + y - 31 * s) / (136 * s)));
-    return [mix(255, 232, t), mix(255, 241, t), 255, 0.95];
-  });
-
-  drawRoundedRect(pixels, size, size, scaleRect(39, 46, 35, 8), 4 * s, [24, 35, 63, 1]);
-  drawRoundedRect(pixels, size, size, scaleRect(39, 62, 49, 7), 3.5 * s, [88, 112, 166, 1]);
-  drawRoundedRect(pixels, size, size, scaleRect(39, 76, 28, 7), 3.5 * s, [143, 163, 204, 1]);
-  drawLine(pixels, size, size, 82 * s, 74 * s, 91 * s, 83 * s, 7 * s, [35, 104, 242, 1]);
-  drawLine(pixels, size, size, 91 * s, 83 * s, 82 * s, 92 * s, 7 * s, [35, 104, 242, 1]);
+  drawRoundedRect(pixels, size, size, scaleRect(27, 28, 74, 72), 18 * s, [255, 255, 255, 1]);
+  drawRoundedRect(pixels, size, size, scaleRect(38, 44, 40, 9), 4.5 * s, [16, 27, 54, 1]);
+  drawRoundedRect(pixels, size, size, scaleRect(38, 62, 52, 8), 4 * s, [50, 71, 110, 1]);
+  drawRoundedRect(pixels, size, size, scaleRect(38, 78, 32, 8), 4 * s, [114, 134, 172, 1]);
+  drawLine(pixels, size, size, 82 * s, 74 * s, 93 * s, 85 * s, 9 * s, [21, 94, 239, 1]);
+  drawLine(pixels, size, size, 93 * s, 85 * s, 82 * s, 96 * s, 9 * s, [21, 94, 239, 1]);
+  drawCircle(pixels, size, size, 97 * s, 30 * s, 7 * s, [255, 255, 255, 1]);
 
   return pixels;
 }
