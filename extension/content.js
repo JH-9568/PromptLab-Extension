@@ -74,21 +74,6 @@
     return null;
   }
 
-  function findComposerContainer(input) {
-    if (!input) return null;
-    return input.closest('form') || input.closest('[data-testid*="composer"]') || input.parentElement;
-  }
-
-  function visibleButtonsIn(element) {
-    if (!element) return [];
-    return Array.from(element.querySelectorAll('button')).filter((button) => {
-      if (button.closest('#promptlab-root') || button.id === 'promptlab-fab') return false;
-      const rect = button.getBoundingClientRect();
-      const style = window.getComputedStyle(button);
-      return rect.width >= 24 && rect.height >= 24 && style.display !== 'none' && style.visibility !== 'hidden';
-    });
-  }
-
   function getAssistantMessages() {
     return Array.from(document.querySelectorAll('[data-message-author-role="assistant"]')).filter((element) => (
       !element.closest('#promptlab-root') && (element.innerText || element.textContent || '').trim()
@@ -329,40 +314,18 @@
     const input = findPromptInput();
     if (!root || !button || !input) return;
 
-    placeFabInComposer();
-
-    const rect = button.getBoundingClientRect();
-    const verticalGap = 10;
-    const bottom = Math.min(window.innerHeight - 48 - 12, Math.max(12, window.innerHeight - rect.top + verticalGap));
-    const right = Math.min(window.innerWidth - 360 - 12, Math.max(12, window.innerWidth - rect.right));
+    const rect = input.getBoundingClientRect();
+    const buttonSize = 48;
+    const verticalGap = 18;
+    const actionButtonCenterOffset = 36;
+    const bottom = Math.min(window.innerHeight - buttonSize - 12, Math.max(12, window.innerHeight - rect.top + verticalGap));
+    const right = Math.min(
+      window.innerWidth - buttonSize - 12,
+      Math.max(12, window.innerWidth - rect.right + actionButtonCenterOffset - buttonSize / 2)
+    );
 
     root.style.setProperty('--promptlab-fab-bottom', `${Math.round(bottom)}px`);
     root.style.setProperty('--promptlab-fab-right', `${Math.round(right)}px`);
-  }
-
-  function placeFabInComposer() {
-    const button = document.querySelector('#promptlab-fab');
-    const input = findPromptInput();
-    const composer = findComposerContainer(input);
-    if (!button || !composer) return;
-
-    const buttons = visibleButtonsIn(composer);
-    const anchor = buttons[buttons.length - 1];
-    button.classList.remove('is-floating');
-
-    if (anchor?.parentElement && button.parentElement !== anchor.parentElement) {
-      anchor.parentElement.insertBefore(button, anchor);
-      return;
-    }
-
-    if (anchor?.parentElement && button.nextElementSibling !== anchor) {
-      anchor.parentElement.insertBefore(button, anchor);
-      return;
-    }
-
-    if (!button.parentElement || button.parentElement.id === 'promptlab-root') {
-      composer.appendChild(button);
-    }
   }
 
   function updateFabCue() {
@@ -552,6 +515,9 @@
     const root = document.createElement('div');
     root.id = 'promptlab-root';
     root.innerHTML = `
+      <button id="promptlab-fab" type="button" aria-label="PromptLab 열기">
+        <img src="${chrome.runtime.getURL('icons/icon48.png')}" alt="">
+      </button>
       <section id="promptlab-panel" hidden>
         <header class="promptlab-header">
           <div>
@@ -586,16 +552,8 @@
     `;
 
     document.body.appendChild(root);
-    const fab = document.createElement('button');
-    fab.id = 'promptlab-fab';
-    fab.type = 'button';
-    fab.setAttribute('aria-label', 'PromptLab 열기');
-    fab.className = 'is-floating';
-    fab.innerHTML = `<img src="${chrome.runtime.getURL('icons/icon48.png')}" alt="">`;
-    root.appendChild(fab);
-    placeFabInComposer();
 
-    fab.addEventListener('click', () => {
+    document.querySelector('#promptlab-fab').addEventListener('click', () => {
       if (state.isOpen) {
         closePanel();
       } else {
@@ -630,7 +588,6 @@
       if (!document.querySelector('#promptlab-root')) {
         insertUi();
       }
-      placeFabInComposer();
     });
 
     if (document.body) {

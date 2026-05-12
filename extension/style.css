@@ -6,24 +6,6 @@
 }
 
 #promptlab-fab {
-  position: relative;
-  z-index: 20;
-  flex: 0 0 auto;
-  width: 36px;
-  height: 36px;
-  padding: 3px;
-  margin: 0 4px;
-  border: 1px solid rgba(168, 85, 247, 0.42);
-  border-radius: 12px;
-  background: #130a2a;
-  font-size: 12px;
-  font-weight: 650;
-  box-shadow: 0 8px 18px rgba(88, 28, 135, 0.24);
-  cursor: pointer;
-  transition: border-color 160ms ease, box-shadow 160ms ease, transform 160ms ease;
-}
-
-#promptlab-fab.is-floating {
   position: fixed;
   right: var(--promptlab-fab-right, 18px);
   bottom: var(--promptlab-fab-bottom, 18px);
@@ -31,8 +13,14 @@
   width: 48px;
   height: 48px;
   padding: 4px;
-  margin: 0;
+  border: 1px solid rgba(168, 85, 247, 0.42);
   border-radius: 14px;
+  background: #130a2a;
+  font-size: 12px;
+  font-weight: 650;
+  box-shadow: 0 10px 28px rgba(88, 28, 135, 0.32);
+  cursor: pointer;
+  transition: border-color 160ms ease, box-shadow 160ms ease, transform 160ms ease;
 }
 
 #promptlab-fab:hover {
@@ -45,10 +33,6 @@
   display: block;
   width: 100%;
   height: 100%;
-  border-radius: 9px;
-}
-
-#promptlab-fab.is-floating img {
   border-radius: 11px;
 }
 
@@ -373,15 +357,8 @@
 
 @media (max-width: 520px) {
   #promptlab-fab {
-    width: 34px;
-    height: 34px;
-  }
-
-  #promptlab-fab.is-floating {
     right: var(--promptlab-fab-right, 12px);
     bottom: var(--promptlab-fab-bottom, 12px);
-    width: 48px;
-    height: 48px;
   }
 
   #promptlab-panel {
