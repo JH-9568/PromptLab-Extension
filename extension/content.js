@@ -24,7 +24,8 @@
     awaitingRating: false,
     assistantMessageBaseline: 0,
     answerCheckTimer: null,
-    answerCheckStartedAt: 0
+    answerCheckStartedAt: 0,
+    promptWatchTimer: null
   };
 
   function createId(prefix) {
@@ -304,7 +305,23 @@
     const button = document.querySelector('#promptlab-analyze');
     if (!button) return;
     button.disabled = isBusy;
-    button.textContent = isBusy ? 'Analyzing...' : 'Analyze & Improve';
+    button.textContent = isBusy ? '개선 중...' : '프롬프트 개선하기';
+  }
+
+  function updateFabCue() {
+    const button = document.querySelector('#promptlab-fab');
+    if (!button) return;
+
+    const prompt = getPromptText(findPromptInput());
+    const shouldCue = Boolean(prompt) && !state.isOpen && !state.response && !state.awaitingRating;
+    button.classList.toggle('has-prompt', shouldCue);
+    button.setAttribute('aria-label', shouldCue ? '프롬프트 개선 가능' : 'PromptLab 열기');
+  }
+
+  function startPromptWatch() {
+    clearInterval(state.promptWatchTimer);
+    state.promptWatchTimer = setInterval(updateFabCue, 800);
+    updateFabCue();
   }
 
   function resetPromptSession() {
@@ -319,6 +336,7 @@
     state.assistantMessageBaseline = getAssistantMessageCount();
     stopAnswerCheck();
     hideRatingPrompt();
+    updateFabCue();
   }
 
   async function analyzePrompt() {
@@ -346,7 +364,9 @@
     hideRatingPrompt();
 
     setBusy(true);
-    setStatus('Sending prompt to local server...');
+    setStatus('프롬프트를 개선하고 있습니다...');
+    const fab = document.querySelector('#promptlab-fab');
+    if (fab) fab.classList.remove('has-prompt');
     renderResult();
 
     try {
@@ -368,7 +388,7 @@
       const data = await response.json();
       state.response = data;
       state.improvedPrompt = data.improved_prompt || '';
-      setStatus('Improved prompt is ready.');
+      setStatus('개선된 프롬프트가 준비되었습니다.');
       renderResult();
     } catch (error) {
       setStatus(`서버 요청 실패: ${error.message}`, true);
@@ -474,25 +494,28 @@
     const root = document.createElement('div');
     root.id = 'promptlab-root';
     root.innerHTML = `
-      <button id="promptlab-fab" type="button">PromptLab</button>
+      <button id="promptlab-fab" type="button" aria-label="PromptLab 열기">
+        <img src="${chrome.runtime.getURL('icons/icon48.png')}" alt="">
+        <span class="promptlab-cue" aria-hidden="true">!</span>
+      </button>
       <section id="promptlab-panel" hidden>
         <header class="promptlab-header">
           <div>
             <strong>PromptLab</strong>
-            <span>Prompt improver</span>
+            <span>프롬프트 개선 도구</span>
           </div>
           <button id="promptlab-close" type="button" aria-label="Close">x</button>
         </header>
         <div class="promptlab-body">
-          <label class="promptlab-label" for="promptlab-current">Current Prompt</label>
+          <label class="promptlab-label" for="promptlab-current">현재 프롬프트</label>
           <textarea id="promptlab-current" readonly></textarea>
-          <button id="promptlab-analyze" class="promptlab-primary" type="button">Analyze & Improve</button>
+          <button id="promptlab-analyze" class="promptlab-primary" type="button">프롬프트 개선하기</button>
           <div id="promptlab-status" class="promptlab-status" aria-live="polite"></div>
           <div id="promptlab-result"></div>
           <div id="promptlab-actions" hidden>
             <div class="promptlab-action-row">
-              <button id="promptlab-insert" class="promptlab-primary" type="button">Insert Improved</button>
-              <button id="promptlab-original" type="button">Use Original</button>
+              <button id="promptlab-insert" class="promptlab-primary" type="button">개선본 넣기</button>
+              <button id="promptlab-original" type="button">원본 유지</button>
             </div>
           </div>
         </div>
@@ -516,6 +539,7 @@
       } else {
         openPanel();
       }
+      updateFabCue();
     });
 
     document.querySelector('#promptlab-close').addEventListener('click', closePanel);
@@ -531,11 +555,13 @@
     });
 
     renderResult();
+    updateFabCue();
   }
 
   async function init() {
     state.userId = await getStoredUserId();
     insertUi();
+    startPromptWatch();
 
     const observer = new MutationObserver(() => {
       if (!document.querySelector('#promptlab-root')) {

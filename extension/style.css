@@ -10,20 +10,56 @@
   right: 18px;
   bottom: 18px;
   z-index: 2147483647;
-  min-width: 96px;
-  height: 36px;
-  border: 1px solid #1f6f62;
-  border-radius: 7px;
-  background: #1f6f62;
-  color: #ffffff;
+  width: 48px;
+  height: 48px;
+  padding: 4px;
+  border: 1px solid rgba(168, 85, 247, 0.42);
+  border-radius: 14px;
+  background: #130a2a;
   font-size: 12px;
   font-weight: 650;
-  box-shadow: 0 8px 20px rgba(31, 35, 40, 0.2);
+  box-shadow: 0 10px 28px rgba(88, 28, 135, 0.32);
   cursor: pointer;
+  transition: border-color 160ms ease, box-shadow 160ms ease, transform 160ms ease;
 }
 
 #promptlab-fab:hover {
-  background: #18594f;
+  border-color: rgba(216, 180, 254, 0.86);
+  box-shadow: 0 12px 32px rgba(126, 34, 206, 0.42);
+  transform: translateY(-1px);
+}
+
+#promptlab-fab img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  border-radius: 11px;
+}
+
+#promptlab-fab.has-prompt {
+  border-color: #facc15;
+  box-shadow: 0 0 0 4px rgba(250, 204, 21, 0.16), 0 12px 34px rgba(168, 85, 247, 0.46);
+}
+
+.promptlab-cue {
+  position: absolute;
+  right: -3px;
+  top: -4px;
+  display: none;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  border: 2px solid #ffffff;
+  border-radius: 999px;
+  background: #facc15;
+  color: #2e1065;
+  font-size: 12px;
+  font-weight: 800;
+  line-height: 14px;
+}
+
+#promptlab-fab.has-prompt .promptlab-cue {
+  display: block;
 }
 
 #promptlab-panel {
@@ -38,7 +74,7 @@
   border-radius: 8px;
   background: #ffffff;
   color: #1f2328;
-  box-shadow: 0 16px 38px rgba(31, 35, 40, 0.22);
+  box-shadow: 0 16px 38px rgba(88, 28, 135, 0.22);
 }
 
 #promptlab-rating-toast {
@@ -52,7 +88,7 @@
   border-radius: 8px;
   background: #ffffff;
   color: #1f2328;
-  box-shadow: 0 16px 38px rgba(31, 35, 40, 0.22);
+  box-shadow: 0 16px 38px rgba(88, 28, 135, 0.22);
 }
 
 .promptlab-header {
@@ -61,8 +97,8 @@
   justify-content: space-between;
   gap: 10px;
   padding: 10px 12px;
-  border-bottom: 1px solid #d8dee4;
-  background: #fbfbfc;
+  border-bottom: 1px solid #eadcff;
+  background: #fbf7ff;
 }
 
 .promptlab-header strong {
@@ -74,7 +110,7 @@
 .promptlab-header span {
   display: block;
   margin-top: 1px;
-  color: #57606a;
+  color: #6b5a7d;
   font-size: 11px;
 }
 
@@ -84,7 +120,7 @@
   border: 1px solid #d0d7de;
   border-radius: 6px;
   background: #ffffff;
-  color: #24292f;
+  color: #2e1065;
   font-size: 13px;
   cursor: pointer;
 }
@@ -138,7 +174,7 @@
   margin-top: 10px;
   border: 0;
   border-radius: 6px;
-  background: #1f6f62;
+  background: #7c3aed;
   color: #ffffff;
   font-size: 12px;
   font-weight: 650;
@@ -153,7 +189,7 @@
 .promptlab-status {
   min-height: 16px;
   margin-top: 8px;
-  color: #57606a;
+  color: #6b5a7d;
   font-size: 11px;
 }
 
@@ -166,8 +202,8 @@
   padding: 10px;
   border: 1px solid #d8dee4;
   border-radius: 6px;
-  background: #fbfbfc;
-  color: #57606a;
+  background: #fbf7ff;
+  color: #6b5a7d;
   font-size: 12px;
 }
 
@@ -182,13 +218,13 @@
   padding: 8px;
   border: 1px solid #d8dee4;
   border-radius: 6px;
-  background: #fbfbfc;
+  background: #fbf7ff;
 }
 
 .promptlab-score-grid span,
 .promptlab-guidelines span {
   display: block;
-  color: #57606a;
+  color: #6b5a7d;
   font-size: 11px;
 }
 
@@ -204,6 +240,7 @@
   padding: 8px;
   border: 1px solid #d8dee4;
   border-radius: 6px;
+  background: #ffffff;
 }
 
 .promptlab-guidelines strong {
@@ -216,7 +253,7 @@
 .promptlab-guidelines small {
   display: block;
   margin-top: 3px;
-  color: #57606a;
+  color: #6b5a7d;
   font-size: 11px;
 }
 
@@ -249,9 +286,9 @@
 }
 
 .promptlab-signal.is-on {
-  border-color: #9ccfc3;
-  background: #f1faf7;
-  color: #1f6f62;
+  border-color: #d8b4fe;
+  background: #faf5ff;
+  color: #6d28d9;
 }
 
 .promptlab-action-row {
@@ -270,7 +307,7 @@
   border: 1px solid #d0d7de;
   border-radius: 6px;
   background: #ffffff;
-  color: #24292f;
+  color: #3b0764;
   font-size: 12px;
   cursor: pointer;
 }
@@ -292,7 +329,7 @@
 #promptlab-rating-status {
   display: block;
   margin-top: 2px;
-  color: #57606a;
+  color: #6b5a7d;
   font-size: 11px;
   line-height: 1.35;
 }
@@ -318,8 +355,8 @@
 }
 
 .promptlab-rating-buttons button.is-selected {
-  border-color: #1f6f62;
-  background: #1f6f62;
+  border-color: #7c3aed;
+  background: #7c3aed;
   color: #ffffff;
   font-weight: 650;
 }
