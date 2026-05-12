@@ -8,7 +8,7 @@
 #promptlab-fab {
   position: fixed;
   right: 18px;
-  bottom: 18px;
+  bottom: var(--promptlab-fab-bottom, 18px);
   z-index: 2147483647;
   width: 48px;
   height: 48px;
@@ -65,7 +65,7 @@
 #promptlab-panel {
   position: fixed;
   right: 18px;
-  bottom: 64px;
+  bottom: calc(var(--promptlab-fab-bottom, 18px) + 58px);
   z-index: 2147483647;
   width: min(360px, calc(100vw - 36px));
   max-height: min(680px, calc(100vh - 92px));
@@ -80,7 +80,7 @@
 #promptlab-rating-toast {
   position: fixed;
   right: 18px;
-  bottom: 64px;
+  bottom: calc(var(--promptlab-fab-bottom, 18px) + 58px);
   z-index: 2147483647;
   width: min(340px, calc(100vw - 36px));
   padding: 10px 12px;
@@ -364,18 +364,18 @@
 @media (max-width: 520px) {
   #promptlab-fab {
     right: 12px;
-    bottom: 12px;
+    bottom: var(--promptlab-fab-bottom, 12px);
   }
 
   #promptlab-panel {
     right: 12px;
-    bottom: 58px;
+    bottom: calc(var(--promptlab-fab-bottom, 12px) + 52px);
     width: calc(100vw - 24px);
   }
 
   #promptlab-rating-toast {
     right: 12px;
-    bottom: 58px;
+    bottom: calc(var(--promptlab-fab-bottom, 12px) + 52px);
     width: calc(100vw - 24px);
   }
 

@@ -308,10 +308,33 @@
     button.textContent = isBusy ? '개선 중...' : '프롬프트 개선하기';
   }
 
+  function updateFabPlacement() {
+    const root = document.querySelector('#promptlab-root');
+    const button = document.querySelector('#promptlab-fab');
+    const input = findPromptInput();
+    if (!root || !button || !input) return;
+
+    const rect = input.getBoundingClientRect();
+    const buttonSize = 48;
+    const gap = 14;
+    const defaultBottom = 18;
+    const defaultRight = 18;
+    const wouldOverlapVertically = rect.bottom > window.innerHeight - defaultBottom - buttonSize - gap;
+    const wouldOverlapHorizontally = rect.right > window.innerWidth - defaultRight - buttonSize - gap;
+
+    if (wouldOverlapVertically && wouldOverlapHorizontally) {
+      const bottom = Math.min(window.innerHeight - buttonSize - 12, Math.max(defaultBottom, window.innerHeight - rect.top + gap));
+      root.style.setProperty('--promptlab-fab-bottom', `${Math.round(bottom)}px`);
+    } else {
+      root.style.setProperty('--promptlab-fab-bottom', `${defaultBottom}px`);
+    }
+  }
+
   function updateFabCue() {
     const button = document.querySelector('#promptlab-fab');
     if (!button) return;
 
+    updateFabPlacement();
     const prompt = getPromptText(findPromptInput());
     const shouldCue = Boolean(prompt) && !state.isOpen && !state.response && !state.awaitingRating;
     button.classList.toggle('has-prompt', shouldCue);
@@ -541,6 +564,7 @@
       }
       updateFabCue();
     });
+    window.addEventListener('resize', updateFabPlacement);
 
     document.querySelector('#promptlab-close').addEventListener('click', closePanel);
     document.querySelector('#promptlab-analyze').addEventListener('click', analyzePrompt);
