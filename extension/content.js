@@ -311,21 +311,11 @@
   function updateFabPlacement() {
     const root = document.querySelector('#promptlab-root');
     const button = document.querySelector('#promptlab-fab');
-    const input = findPromptInput();
-    if (!root || !button || !input) return;
+    if (!root || !button) return;
 
-    const rect = input.getBoundingClientRect();
-    const buttonSize = 48;
-    const verticalGap = 18;
-    const actionButtonCenterOffset = 36;
-    const bottom = Math.min(window.innerHeight - buttonSize - 12, Math.max(12, window.innerHeight - rect.top + verticalGap));
-    const right = Math.min(
-      window.innerWidth - buttonSize - 12,
-      Math.max(12, window.innerWidth - rect.right + actionButtonCenterOffset - buttonSize / 2)
-    );
-
-    root.style.setProperty('--promptlab-fab-bottom', `${Math.round(bottom)}px`);
-    root.style.setProperty('--promptlab-fab-right', `${Math.round(right)}px`);
+    const bottom = Math.max(96, Math.round(window.innerHeight * 0.22));
+    root.style.setProperty('--promptlab-fab-bottom', `${bottom}px`);
+    root.style.setProperty('--promptlab-fab-right', '14px');
   }
 
   function updateFabCue() {

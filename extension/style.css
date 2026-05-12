@@ -7,14 +7,14 @@
 
 #promptlab-fab {
   position: fixed;
-  right: var(--promptlab-fab-right, 18px);
-  bottom: var(--promptlab-fab-bottom, 18px);
+  right: var(--promptlab-fab-right, 14px);
+  bottom: var(--promptlab-fab-bottom, 120px);
   z-index: 2147483647;
   width: 48px;
   height: 48px;
   padding: 4px;
   border: 1px solid rgba(168, 85, 247, 0.42);
-  border-radius: 14px;
+  border-radius: 14px 0 0 14px;
   background: #130a2a;
   font-size: 12px;
   font-weight: 650;
@@ -26,7 +26,7 @@
 #promptlab-fab:hover {
   border-color: rgba(216, 180, 254, 0.86);
   box-shadow: 0 12px 32px rgba(126, 34, 206, 0.42);
-  transform: translateY(-1px);
+  transform: translateX(-2px);
 }
 
 #promptlab-fab img {
@@ -59,7 +59,7 @@
 #promptlab-panel {
   position: fixed;
   right: var(--promptlab-fab-right, 18px);
-  bottom: calc(var(--promptlab-fab-bottom, 18px) + 58px);
+  bottom: calc(var(--promptlab-fab-bottom, 120px) + 58px);
   z-index: 2147483647;
   width: min(360px, calc(100vw - 36px));
   max-height: min(680px, calc(100vh - 92px));
@@ -74,7 +74,7 @@
 #promptlab-rating-toast {
   position: fixed;
   right: var(--promptlab-fab-right, 18px);
-  bottom: calc(var(--promptlab-fab-bottom, 18px) + 58px);
+  bottom: calc(var(--promptlab-fab-bottom, 120px) + 58px);
   z-index: 2147483647;
   width: min(340px, calc(100vw - 36px));
   padding: 10px 12px;
@@ -357,19 +357,19 @@
 
 @media (max-width: 520px) {
   #promptlab-fab {
-    right: var(--promptlab-fab-right, 12px);
-    bottom: var(--promptlab-fab-bottom, 12px);
+    right: var(--promptlab-fab-right, 10px);
+    bottom: var(--promptlab-fab-bottom, 110px);
   }
 
   #promptlab-panel {
     right: var(--promptlab-fab-right, 12px);
-    bottom: calc(var(--promptlab-fab-bottom, 12px) + 52px);
+    bottom: calc(var(--promptlab-fab-bottom, 110px) + 52px);
     width: calc(100vw - 24px);
   }
 
   #promptlab-rating-toast {
     right: var(--promptlab-fab-right, 12px);
-    bottom: calc(var(--promptlab-fab-bottom, 12px) + 52px);
+    bottom: calc(var(--promptlab-fab-bottom, 110px) + 52px);
     width: calc(100vw - 24px);
   }
 
