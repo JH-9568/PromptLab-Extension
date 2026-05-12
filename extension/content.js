@@ -307,6 +307,20 @@
     button.textContent = isBusy ? 'Analyzing...' : 'Analyze & Improve';
   }
 
+  function resetPromptSession() {
+    state.sessionId = null;
+    state.originalPrompt = '';
+    state.improvedPrompt = '';
+    state.taskCategory = DEFAULT_TASK_CATEGORY;
+    state.response = null;
+    state.usedImproved = null;
+    state.satisfactionScore = null;
+    state.awaitingRating = false;
+    state.assistantMessageBaseline = getAssistantMessageCount();
+    stopAnswerCheck();
+    hideRatingPrompt();
+  }
+
   async function analyzePrompt() {
     const input = findPromptInput();
     const prompt = getPromptText(input);
@@ -408,9 +422,10 @@
       }
 
       setRatingStatus(`만족도 ${satisfactionScore}점이 저장되었습니다.`);
-      state.awaitingRating = false;
-      stopAnswerCheck();
-      setTimeout(hideRatingPrompt, 450);
+      setTimeout(() => {
+        resetPromptSession();
+        renderResult();
+      }, 450);
     } catch (error) {
       state.satisfactionScore = null;
       setSelectedRating(null);
@@ -435,6 +450,10 @@
     const panel = document.querySelector('#promptlab-panel');
     const input = findPromptInput();
     if (!panel) return;
+
+    if (state.satisfactionScore && !state.awaitingRating) {
+      resetPromptSession();
+    }
 
     panel.hidden = false;
     document.querySelector('#promptlab-current').value = getPromptText(input);
