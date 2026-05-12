@@ -1,0 +1,97 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>PromptLab</title>
+    <style>
+      body {
+        width: 320px;
+        margin: 0;
+        padding: 16px;
+        background: #ffffff;
+        color: #1f2328;
+        font-family: Arial, Helvetica, sans-serif;
+        font-size: 13px;
+      }
+
+      h1 {
+        margin: 0 0 10px;
+        font-size: 18px;
+      }
+
+      .meta {
+        padding: 10px;
+        border: 1px solid #d8dee4;
+        border-radius: 6px;
+        background: #f6f8fa;
+      }
+
+      .meta div + div {
+        margin-top: 8px;
+      }
+
+      .label {
+        display: block;
+        color: #57606a;
+        font-size: 12px;
+      }
+
+      code {
+        display: block;
+        margin-top: 3px;
+        word-break: break-all;
+      }
+
+      ol {
+        margin: 14px 0;
+        padding-left: 20px;
+      }
+
+      li + li {
+        margin-top: 6px;
+      }
+
+      .links {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 8px;
+      }
+
+      a {
+        display: block;
+        padding: 9px 10px;
+        border-radius: 6px;
+        background: #176b5b;
+        color: #ffffff;
+        text-align: center;
+        text-decoration: none;
+        font-weight: 700;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>PromptLab</h1>
+    <div class="meta">
+      <div>
+        <span class="label">Anonymous user_id</span>
+        <code id="user-id">Loading...</code>
+      </div>
+      <div>
+        <span class="label">Server</span>
+        <code>localhost:3000</code>
+      </div>
+    </div>
+    <ol>
+      <li>Open ChatGPT and write a prompt.</li>
+      <li>Click the PromptLab floating button.</li>
+      <li>Run Analyze &amp; Improve.</li>
+      <li>Insert the improved prompt into the input box, then rate it.</li>
+    </ol>
+    <div class="links">
+      <a href="http://localhost:3000/api/logs/export/json" target="_blank" rel="noreferrer">Export JSON</a>
+      <a href="http://localhost:3000/api/logs/export/csv" target="_blank" rel="noreferrer">Export CSV</a>
+    </div>
+    <script src="popup.js"></script>
+  </body>
+</html>

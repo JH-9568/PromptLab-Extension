@@ -1,0 +1,31 @@
+{
+  "manifest_version": 3,
+  "name": "PromptLab Extension",
+  "version": "0.1.0",
+  "description": "Analyze and improve prompts on ChatGPT with the local PromptLab server.",
+  "permissions": [
+    "storage"
+  ],
+  "host_permissions": [
+    "http://localhost:3000/*"
+  ],
+  "action": {
+    "default_title": "PromptLab",
+    "default_popup": "popup.html"
+  },
+  "content_scripts": [
+    {
+      "matches": [
+        "https://chatgpt.com/*",
+        "https://chat.openai.com/*"
+      ],
+      "js": [
+        "content.js"
+      ],
+      "css": [
+        "style.css"
+      ],
+      "run_at": "document_idle"
+    }
+  ]
+}

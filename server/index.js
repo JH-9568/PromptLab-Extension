@@ -89,6 +89,10 @@ app.post('/api/improve', async (req, res, next) => {
       session_id: sessionId,
       task_category: normalizedCategory,
       guideline_files: guidelines.files,
+      retrieved_guidelines: {
+        category: normalizedCategory,
+        files: guidelines.files
+      },
       improved_prompt: generation.improved_prompt,
       provider: generation.provider,
       before_analysis: beforeAnalysis,
