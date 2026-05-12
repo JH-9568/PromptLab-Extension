@@ -1,4 +1,5 @@
 const STORAGE_USER_ID_KEY = 'promptlab_user_id';
+const SERVER_URL = 'https://promptlab-server.onrender.com';
 
 function createId(prefix) {
   const id = crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random().toString(16).slice(2)}`;
@@ -15,3 +16,23 @@ chrome.storage.local.get([STORAGE_USER_ID_KEY], (result) => {
 
   document.querySelector('#user-id').textContent = userId;
 });
+
+async function checkServerStatus() {
+  const status = document.querySelector('#server-status');
+  if (!status) return;
+
+  try {
+    const response = await fetch(`${SERVER_URL}/health`, { cache: 'no-store' });
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+
+    status.textContent = 'Connected';
+    status.classList.add('is-ok');
+    status.classList.remove('is-error');
+  } catch (error) {
+    status.textContent = 'Disconnected';
+    status.classList.add('is-error');
+    status.classList.remove('is-ok');
+  }
+}
+
+checkServerStatus();

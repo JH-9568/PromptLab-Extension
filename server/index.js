@@ -142,5 +142,5 @@ app.use((error, req, res, next) => {
 });
 
 app.listen(PORT, () => {
-  console.log(`PromptLab server listening on http://localhost:${PORT}`);
+  console.log(`PromptLab server listening on port ${PORT}`);
 });

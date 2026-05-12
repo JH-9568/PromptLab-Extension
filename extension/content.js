@@ -1,5 +1,5 @@
 (() => {
-  const SERVER_URL = 'http://localhost:3000';
+  const SERVER_URL = 'https://promptlab-server.onrender.com';
   const STORAGE_USER_ID_KEY = 'promptlab_user_id';
   const INPUT_SELECTORS = [
     '#prompt-textarea',

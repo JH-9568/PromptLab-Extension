@@ -52,6 +52,20 @@
         margin-top: 6px;
       }
 
+      .status {
+        display: inline-block;
+        margin-top: 3px;
+        font-weight: 700;
+      }
+
+      .status.is-ok {
+        color: #1f6f62;
+      }
+
+      .status.is-error {
+        color: #cf222e;
+      }
+
       .links {
         display: grid;
         grid-template-columns: 1fr 1fr;
@@ -79,18 +93,19 @@
       </div>
       <div>
         <span class="label">Server</span>
-        <code>localhost:3000</code>
+        <code>promptlab-server.onrender.com</code>
+        <span id="server-status" class="status">Checking...</span>
       </div>
     </div>
     <ol>
-      <li>Open ChatGPT and write a prompt.</li>
-      <li>Click the PromptLab floating button.</li>
-      <li>Run Analyze &amp; Improve.</li>
-      <li>Insert the improved prompt into the input box, then rate it.</li>
+      <li>ChatGPT에서 프롬프트를 작성하세요.</li>
+      <li>PromptLab 버튼을 누르세요.</li>
+      <li>프롬프트를 개선하고 입력창에 넣으세요.</li>
+      <li>답변이 나온 뒤 만족도를 평가하세요.</li>
     </ol>
     <div class="links">
-      <a href="http://localhost:3000/api/logs/export/json" target="_blank" rel="noreferrer">Export JSON</a>
-      <a href="http://localhost:3000/api/logs/export/csv" target="_blank" rel="noreferrer">Export CSV</a>
+      <a href="https://promptlab-server.onrender.com/api/logs/export/json" target="_blank" rel="noreferrer">Export JSON</a>
+      <a href="https://promptlab-server.onrender.com/api/logs/export/csv" target="_blank" rel="noreferrer">Export CSV</a>
     </div>
     <script src="popup.js"></script>
   </body>
