@@ -41,6 +41,20 @@
   box-shadow: 0 16px 38px rgba(31, 35, 40, 0.22);
 }
 
+#promptlab-rating-toast {
+  position: fixed;
+  right: 18px;
+  bottom: 64px;
+  z-index: 2147483647;
+  width: min(340px, calc(100vw - 36px));
+  padding: 10px 12px;
+  border: 1px solid #d8dee4;
+  border-radius: 8px;
+  background: #ffffff;
+  color: #1f2328;
+  box-shadow: 0 16px 38px rgba(31, 35, 40, 0.22);
+}
+
 .promptlab-header {
   display: flex;
   align-items: center;
@@ -261,27 +275,33 @@
   cursor: pointer;
 }
 
-.promptlab-rating {
-  margin-top: 10px;
-  padding-top: 10px;
-  border-top: 1px solid #d8dee4;
-}
-
-.promptlab-rating span {
-  display: block;
-  margin-bottom: 6px;
-  color: #24292f;
-  font-size: 11px;
-  font-weight: 650;
-}
-
-.promptlab-rating div {
+.promptlab-rating-buttons {
   display: grid;
   grid-template-columns: repeat(5, 1fr);
   gap: 5px;
+  margin-top: 8px;
 }
 
-.promptlab-rating button {
+#promptlab-rating-toast strong {
+  display: block;
+  color: #24292f;
+  font-size: 12px;
+  font-weight: 650;
+}
+
+#promptlab-rating-status {
+  display: block;
+  margin-top: 2px;
+  color: #57606a;
+  font-size: 11px;
+  line-height: 1.35;
+}
+
+#promptlab-rating-status.is-error {
+  color: #cf222e;
+}
+
+.promptlab-rating-buttons button {
   height: 30px;
   border: 1px solid #d0d7de;
   border-radius: 6px;
@@ -291,13 +311,13 @@
   cursor: pointer;
 }
 
-.promptlab-rating button:hover,
+.promptlab-rating-buttons button:hover,
 #promptlab-original:hover,
 #promptlab-close:hover {
   background: #f6f8fa;
 }
 
-.promptlab-rating button.is-selected {
+.promptlab-rating-buttons button.is-selected {
   border-color: #1f6f62;
   background: #1f6f62;
   color: #ffffff;
@@ -311,6 +331,12 @@
   }
 
   #promptlab-panel {
+    right: 12px;
+    bottom: 58px;
+    width: calc(100vw - 24px);
+  }
+
+  #promptlab-rating-toast {
     right: 12px;
     bottom: 58px;
     width: calc(100vw - 24px);

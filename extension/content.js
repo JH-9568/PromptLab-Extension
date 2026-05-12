@@ -20,7 +20,10 @@
     taskCategory: DEFAULT_TASK_CATEGORY,
     response: null,
     usedImproved: null,
-    satisfactionScore: null
+    satisfactionScore: null,
+    awaitingRating: false,
+    assistantMessageBaseline: 0,
+    answerCheckTimer: null
   };
 
   function createId(prefix) {
@@ -67,6 +70,20 @@
     }
 
     return null;
+  }
+
+  function getAssistantMessages() {
+    return Array.from(document.querySelectorAll('[data-message-author-role="assistant"]')).filter((element) => (
+      !element.closest('#promptlab-root') && (element.innerText || element.textContent || '').trim()
+    ));
+  }
+
+  function getAssistantMessageCount() {
+    return getAssistantMessages().length;
+  }
+
+  function hasNewAssistantAnswer() {
+    return getAssistantMessageCount() > state.assistantMessageBaseline;
   }
 
   function getEditableTarget(input) {
@@ -211,15 +228,47 @@
     `;
 
     actions.hidden = false;
-    setSelectedRating(state.satisfactionScore);
   }
 
   function setSelectedRating(score) {
-    document.querySelectorAll('.promptlab-rating button').forEach((button) => {
+    document.querySelectorAll('#promptlab-rating-toast button[data-score]').forEach((button) => {
       const isSelected = Number(button.dataset.score) === score;
       button.classList.toggle('is-selected', isSelected);
       button.setAttribute('aria-pressed', String(isSelected));
     });
+  }
+
+  function setRatingStatus(message, isError = false) {
+    const status = document.querySelector('#promptlab-rating-status');
+    if (!status) return;
+    status.textContent = message || '';
+    status.classList.toggle('is-error', Boolean(isError));
+  }
+
+  function showRatingPrompt() {
+    if (!state.awaitingRating || state.satisfactionScore) return;
+    const ratingToast = document.querySelector('#promptlab-rating-toast');
+    if (!ratingToast) return;
+    ratingToast.hidden = false;
+    setSelectedRating(null);
+    setRatingStatus('답변 만족도를 선택해 주세요.');
+  }
+
+  function hideRatingPrompt() {
+    const ratingToast = document.querySelector('#promptlab-rating-toast');
+    if (ratingToast) ratingToast.hidden = true;
+    setSelectedRating(null);
+    setRatingStatus('');
+  }
+
+  function scheduleAnswerCheck() {
+    if (!state.awaitingRating || state.satisfactionScore) return;
+    clearTimeout(state.answerCheckTimer);
+    state.answerCheckTimer = setTimeout(() => {
+      if (hasNewAssistantAnswer()) {
+        showRatingPrompt();
+      }
+    }, 900);
   }
 
   function setStatus(message, isError = false) {
@@ -255,6 +304,9 @@
     state.response = null;
     state.usedImproved = null;
     state.satisfactionScore = null;
+    state.awaitingRating = false;
+    state.assistantMessageBaseline = getAssistantMessageCount();
+    hideRatingPrompt();
 
     setBusy(true);
     setStatus('Sending prompt to local server...');
@@ -290,13 +342,13 @@
 
   async function sendLog(satisfactionScore) {
     if (!state.response || !state.sessionId) {
-      setStatus('먼저 프롬프트를 분석해 주세요.', true);
+      setRatingStatus('먼저 프롬프트를 분석해 주세요.', true);
       return;
     }
 
     state.satisfactionScore = satisfactionScore;
     setSelectedRating(satisfactionScore);
-    setStatus(`만족도 ${satisfactionScore}점을 저장 중입니다...`);
+    setRatingStatus(`만족도 ${satisfactionScore}점을 저장 중입니다...`);
 
     try {
       const [originalHash, improvedHash] = await Promise.all([
@@ -332,10 +384,26 @@
         throw new Error(`Server returned ${response.status}`);
       }
 
-      setStatus(`만족도 ${satisfactionScore}점이 저장되었습니다.`);
+      setRatingStatus(`만족도 ${satisfactionScore}점이 저장되었습니다.`);
+      state.awaitingRating = false;
+      setTimeout(hideRatingPrompt, 450);
     } catch (error) {
-      setStatus(`로그 저장 실패: ${error.message}`, true);
+      state.satisfactionScore = null;
+      setSelectedRating(null);
+      setRatingStatus(`로그 저장 실패: ${error.message}`, true);
     }
+  }
+
+  function handlePromptChoice(promptText, usedImproved) {
+    if (!replacePromptInput(promptText)) return;
+
+    state.usedImproved = usedImproved;
+    state.satisfactionScore = null;
+    state.awaitingRating = true;
+    state.assistantMessageBaseline = getAssistantMessageCount();
+    hideRatingPrompt();
+    closePanel();
+    scheduleAnswerCheck();
   }
 
   function openPanel() {
@@ -383,13 +451,16 @@
               <button id="promptlab-insert" class="promptlab-primary" type="button">Insert Improved</button>
               <button id="promptlab-original" type="button">Use Original</button>
             </div>
-            <div class="promptlab-rating">
-              <span>Satisfaction</span>
-              <div>
-                ${[1, 2, 3, 4, 5].map((score) => `<button type="button" data-score="${score}">${score}</button>`).join('')}
-              </div>
-            </div>
           </div>
+        </div>
+      </section>
+      <section id="promptlab-rating-toast" hidden aria-live="polite">
+        <div>
+          <strong>답변 만족도</strong>
+          <span id="promptlab-rating-status">답변 만족도를 선택해 주세요.</span>
+        </div>
+        <div class="promptlab-rating-buttons">
+          ${[1, 2, 3, 4, 5].map((score) => `<button type="button" data-score="${score}" aria-pressed="false">${score}</button>`).join('')}
         </div>
       </section>
     `;
@@ -407,19 +478,12 @@
     document.querySelector('#promptlab-close').addEventListener('click', closePanel);
     document.querySelector('#promptlab-analyze').addEventListener('click', analyzePrompt);
     document.querySelector('#promptlab-insert').addEventListener('click', () => {
-      if (replacePromptInput(state.improvedPrompt)) {
-        state.usedImproved = true;
-        closePanel();
-      }
+      handlePromptChoice(state.improvedPrompt, true);
     });
     document.querySelector('#promptlab-original').addEventListener('click', () => {
-      if (replacePromptInput(state.originalPrompt)) {
-        state.usedImproved = false;
-        closePanel();
-      }
+      handlePromptChoice(state.originalPrompt, false);
     });
-    document.querySelectorAll('.promptlab-rating button').forEach((button) => {
-      button.setAttribute('aria-pressed', 'false');
+    document.querySelectorAll('#promptlab-rating-toast button[data-score]').forEach((button) => {
       button.addEventListener('click', () => sendLog(Number(button.dataset.score)));
     });
 
@@ -434,10 +498,11 @@
       if (!document.querySelector('#promptlab-root')) {
         insertUi();
       }
+      scheduleAnswerCheck();
     });
 
     if (document.body) {
-      observer.observe(document.body, { childList: true });
+      observer.observe(document.body, { childList: true, subtree: true });
     }
   }
 
