@@ -74,35 +74,6 @@
     return null;
   }
 
-  function findComposerActionButton(input) {
-    if (!input) return null;
-
-    const inputRect = input.getBoundingClientRect();
-    const candidates = Array.from(document.querySelectorAll('button')).filter((element) => {
-      if (element.closest('#promptlab-root')) return false;
-      if (element.disabled || element.getAttribute('aria-disabled') === 'true') return false;
-
-      const rect = element.getBoundingClientRect();
-      const style = window.getComputedStyle(element);
-      if (rect.width < 28 || rect.height < 28 || style.visibility === 'hidden' || style.display === 'none') return false;
-
-      const isNearComposer = rect.left >= inputRect.left
-        && rect.right <= inputRect.right + 8
-        && rect.top >= inputRect.top - 8
-        && rect.bottom <= inputRect.bottom + 8;
-
-      return isNearComposer;
-    });
-
-    if (candidates.length === 0) return null;
-
-    return candidates.sort((a, b) => {
-      const aRect = a.getBoundingClientRect();
-      const bRect = b.getBoundingClientRect();
-      return bRect.right - aRect.right || bRect.bottom - aRect.bottom;
-    })[0];
-  }
-
   function getAssistantMessages() {
     return Array.from(document.querySelectorAll('[data-message-author-role="assistant"]')).filter((element) => (
       !element.closest('#promptlab-root') && (element.innerText || element.textContent || '').trim()
@@ -343,13 +314,15 @@
     const input = findPromptInput();
     if (!root || !button || !input) return;
 
-    const anchor = findComposerActionButton(input);
-    const rect = anchor?.getBoundingClientRect() || input.getBoundingClientRect();
+    const rect = input.getBoundingClientRect();
     const buttonSize = 48;
-    const verticalGap = 16;
-    const horizontalOffset = anchor ? Math.max(0, (rect.width - buttonSize) / 2) : 12;
+    const verticalGap = 18;
+    const actionButtonCenterOffset = 36;
     const bottom = Math.min(window.innerHeight - buttonSize - 12, Math.max(12, window.innerHeight - rect.top + verticalGap));
-    const right = Math.min(window.innerWidth - buttonSize - 12, Math.max(12, window.innerWidth - rect.right + horizontalOffset));
+    const right = Math.min(
+      window.innerWidth - buttonSize - 12,
+      Math.max(12, window.innerWidth - rect.right + actionButtonCenterOffset - buttonSize / 2)
+    );
 
     root.style.setProperty('--promptlab-fab-bottom', `${Math.round(bottom)}px`);
     root.style.setProperty('--promptlab-fab-right', `${Math.round(right)}px`);
