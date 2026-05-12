@@ -1,30 +1,46 @@
 # PromptLab Extension
 
-PromptLab은 ChatGPT 사용자가 모호한 프롬프트를 더 명확한 프롬프트로 개선할 수 있도록 돕는 Chrome 확장 프로그램입니다. 확장 프로그램은 연구 및 제품 개선을 위해 익명 프롬프트 품질 메타데이터와 사용자의 만족도 평가를 기록합니다.
+PromptLab은 ChatGPT에서 작성한 프롬프트를 더 명확하고 구체적인 프롬프트로 개선해 주는 Chrome 확장 프로그램입니다. 사용자는 ChatGPT 입력창에 작성한 프롬프트를 PromptLab으로 분석하고, 개선된 프롬프트와 개선 전후의 품질 신호를 확인한 뒤 원하는 버전을 입력창에 적용할 수 있습니다.
 
-## 운영 구조
+## 주요 기능
 
-- Chrome 확장 프로그램은 `https://chatgpt.com/*` 및 `https://chat.openai.com/*`에서 실행됩니다.
-- 백엔드 API는 Render에서 실행됩니다: `https://promptlab-server.onrender.com`.
-- OpenAI API 호출은 백엔드 서버에서만 수행됩니다.
-- `SUPABASE_URL` 및 `SUPABASE_SERVICE_ROLE_KEY`가 설정되어 있으면 세션 로그는 Supabase에 저장됩니다.
-- 로그에는 프롬프트 전문을 저장하지 않습니다. 서버는 해시, 글자 수, 분석 점수, 가이드라인 메타데이터, 만족도 점수만 저장합니다.
+- ChatGPT 입력창의 프롬프트를 감지하고 개선 요청을 보냅니다.
+- OpenAI Prompting 및 Prompt Engineering 가이드 등 공개 프롬프트 작성 가이드라인을 기준으로 프롬프트를 개선합니다.
+- 목표, 맥락, 출력 형식, 제약 조건, 참고 자료 포함 여부를 기준으로 프롬프트를 분석합니다.
+- 개선 전후의 프롬프트 구체성 점수를 비교해 보여줍니다.
+- 개선된 프롬프트를 ChatGPT 입력창에 바로 삽입할 수 있습니다.
+- ChatGPT 답변 이후 사용자가 만족도 점수를 남길 수 있습니다.
+- 익명 세션 메타데이터를 기반으로 프롬프트 개선 품질을 분석합니다.
 
-## 서버 환경 변수
+## 사용 방법
 
-Render에 다음 환경 변수를 설정합니다.
+1. Chrome에서 PromptLab 확장 프로그램을 설치합니다.
+2. `https://chatgpt.com` 또는 `https://chat.openai.com`에 접속합니다.
+3. ChatGPT 입력창에 개선하고 싶은 프롬프트를 작성합니다.
+4. 화면에 표시되는 PromptLab 버튼을 눌러 패널을 엽니다.
+5. `프롬프트 개선하기`를 눌러 개선 결과를 확인합니다.
+6. 개선된 프롬프트가 마음에 들면 ChatGPT 입력창에 적용합니다.
+7. ChatGPT 답변을 확인한 뒤 만족도 점수를 선택합니다.
 
-```bash
-OPENAI_API_KEY=your_openai_api_key
-OPENAI_MODEL=gpt-4.1-mini
-SUPABASE_URL=your_supabase_project_url
-SUPABASE_SERVICE_ROLE_KEY=your_supabase_service_role_key
-NODE_ENV=production
-```
+## 데이터 처리
 
-API 키를 확장 프로그램 코드에 넣지 마세요. `.env` 파일을 커밋하지 마세요.
+PromptLab은 프롬프트 개선 기능을 제공하기 위해 사용자가 입력한 프롬프트를 백엔드 서버로 전송합니다. 백엔드 서버는 개선된 프롬프트 생성을 위해 OpenAI API를 사용할 수 있습니다.
 
-## 로컬 개발
+프롬프트 개선에는 저장소의 가이드라인 문서가 사용되며, 기본 가이드라인은 OpenAI의 Prompting 및 Prompt Engineering 관련 공개 문서를 바탕으로 구성되어 있습니다. 이 가이드라인은 원본 요청에 답변하기 위한 기준이 아니라, 원본 요청을 더 명확한 실행 프롬프트로 다시 작성하기 위한 기준으로 사용됩니다.
+
+로그에는 프롬프트 전문을 저장하지 않습니다. 저장되는 정보는 익명 사용자 ID, 세션 ID, 작업 카테고리, 개선 전후 분석 메타데이터, 프롬프트 해시, 글자 수, 만족도 점수 등 제한적인 익명 메타데이터입니다.
+
+자세한 내용은 [PRIVACY.md](./PRIVACY.md)를 참고하세요.
+
+## 동작 환경
+
+- Chrome 확장 프로그램은 `https://chatgpt.com/*` 및 `https://chat.openai.com/*`에서 동작합니다.
+- 백엔드 API는 `https://promptlab-server.onrender.com`에서 실행됩니다.
+- OpenAI API 호출은 확장 프로그램이 아니라 백엔드 서버에서 수행됩니다.
+
+## 개발자 참고
+
+로컬 서버 실행:
 
 ```bash
 cd server
@@ -34,47 +50,59 @@ npm run dev
 
 로컬 서버 기본 주소는 `http://localhost:3000`입니다. Supabase 환경 변수가 설정되어 있지 않으면 로그는 `server/logs/prompt_sessions.json`에 저장됩니다.
 
-## API
+주요 API:
 
-- `GET /health`: 서버 상태를 확인합니다.
-- `POST /api/improve`: `user_id`, `session_id`, `original_prompt`, `task_category`를 사용해 프롬프트를 개선합니다.
-- `POST /api/log`: 익명 세션 메타데이터와 만족도 평가를 저장합니다.
-- `GET /api/logs/export/json`: 저장된 로그를 JSON으로 내보냅니다.
-- `GET /api/logs/export/csv`: 저장된 로그를 CSV로 내보냅니다.
-
-## 개인정보 보호
-
-자세한 내용은 [PRIVACY.md](./PRIVACY.md)를 참고하세요.
+- `GET /health`: 서버 상태 확인
+- `POST /api/improve`: 프롬프트 개선
+- `POST /api/log`: 익명 세션 메타데이터와 만족도 평가 저장
+- `GET /api/logs/export/json`: 저장된 로그를 JSON으로 내보내기
+- `GET /api/logs/export/csv`: 저장된 로그를 CSV로 내보내기
 
 ---
 
 # PromptLab Extension
 
-PromptLab is a Chrome extension that helps ChatGPT users rewrite vague prompts into clearer prompts, then records anonymous prompt-quality metadata and satisfaction ratings for research and product improvement.
+PromptLab is a Chrome extension that helps ChatGPT users turn vague prompts into clearer and more specific prompts. Users can analyze a prompt written in the ChatGPT input box, review the improved prompt and before/after quality signals, and apply the version they prefer back into the input box.
 
-## Production Architecture
+## Key Features
 
-- Chrome extension runs on `https://chatgpt.com/*` and `https://chat.openai.com/*`.
-- Backend API runs on Render: `https://promptlab-server.onrender.com`.
-- OpenAI API calls are made only from the backend server.
-- Session logs are stored in Supabase when `SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY` are configured.
-- Full prompt text is not stored in logs. The server stores hashes, lengths, analysis scores, guideline metadata, and satisfaction scores.
+- Detects prompts written in the ChatGPT input box and sends improvement requests.
+- Improves prompts using public prompt-writing guidance, including OpenAI Prompting and Prompt Engineering guides.
+- Analyzes prompts based on goal, context, output format, constraints, and reference information.
+- Shows before/after specificity scores for the prompt.
+- Lets users insert the improved prompt directly into the ChatGPT input box.
+- Lets users submit a satisfaction rating after receiving a ChatGPT response.
+- Uses anonymous session metadata to evaluate prompt improvement quality.
 
-## Server Environment Variables
+## How To Use
 
-Set these in Render:
+1. Install the PromptLab Chrome extension.
+2. Open `https://chatgpt.com` or `https://chat.openai.com`.
+3. Write a prompt in the ChatGPT input box.
+4. Click the PromptLab button shown on the page to open the panel.
+5. Click `프롬프트 개선하기` to generate an improved prompt.
+6. Apply the improved prompt to the ChatGPT input box if you want to use it.
+7. After reviewing the ChatGPT response, select a satisfaction rating.
 
-```bash
-OPENAI_API_KEY=your_openai_api_key
-OPENAI_MODEL=gpt-4.1-mini
-SUPABASE_URL=your_supabase_project_url
-SUPABASE_SERVICE_ROLE_KEY=your_supabase_service_role_key
-NODE_ENV=production
-```
+## Data Handling
 
-Do not put API keys in the extension code. Do not commit `.env`.
+PromptLab sends the prompt entered by the user to the backend server to provide the prompt improvement feature. The backend server may use the OpenAI API to generate the improved prompt.
 
-## Local Development
+Prompt improvement uses guideline documents in this repository. The default guidelines are based on OpenAI's public Prompting and Prompt Engineering documentation. These guidelines are used to rewrite the original request into a clearer executable prompt, not to answer the original request directly.
+
+PromptLab logs do not store full prompt text. Stored data is limited to anonymous metadata such as anonymous user ID, session ID, task category, before/after analysis metadata, prompt hashes, character lengths, and satisfaction ratings.
+
+See [PRIVACY.md](./PRIVACY.md) for details.
+
+## Runtime Environment
+
+- The Chrome extension runs on `https://chatgpt.com/*` and `https://chat.openai.com/*`.
+- The backend API runs at `https://promptlab-server.onrender.com`.
+- OpenAI API calls are made by the backend server, not by the extension.
+
+## Developer Notes
+
+Run the local server:
 
 ```bash
 cd server
@@ -82,16 +110,12 @@ npm install
 npm run dev
 ```
 
-Local server defaults to `http://localhost:3000`. If Supabase variables are not configured, logs are written to `server/logs/prompt_sessions.json`.
+The local server defaults to `http://localhost:3000`. If Supabase environment variables are not configured, logs are written to `server/logs/prompt_sessions.json`.
 
-## APIs
+Main APIs:
 
-- `GET /health`: checks server status.
-- `POST /api/improve`: improves a prompt using `user_id`, `session_id`, `original_prompt`, and `task_category`.
-- `POST /api/log`: stores anonymous session metadata and satisfaction rating.
-- `GET /api/logs/export/json`: exports stored logs as JSON.
-- `GET /api/logs/export/csv`: exports stored logs as CSV.
-
-## Privacy
-
-See [PRIVACY.md](./PRIVACY.md).
+- `GET /health`: Check server status
+- `POST /api/improve`: Improve a prompt
+- `POST /api/log`: Store anonymous session metadata and satisfaction rating
+- `GET /api/logs/export/json`: Export stored logs as JSON
+- `GET /api/logs/export/csv`: Export stored logs as CSV
