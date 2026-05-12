@@ -2,6 +2,8 @@
   const SERVER_URL = 'http://localhost:3000';
   const STORAGE_USER_ID_KEY = 'promptlab_user_id';
   const INPUT_SELECTORS = [
+    '#prompt-textarea',
+    '[data-testid="prompt-textarea"]',
     'textarea',
     'div[contenteditable="true"]',
     '[role="textbox"]',
@@ -50,6 +52,9 @@
   function findPromptInput() {
     for (const selector of INPUT_SELECTORS) {
       const candidates = Array.from(document.querySelectorAll(selector)).filter((element) => {
+        if (element.closest('#promptlab-root')) return false;
+        if (element.disabled || element.readOnly || element.getAttribute('aria-disabled') === 'true') return false;
+
         const rect = element.getBoundingClientRect();
         const style = window.getComputedStyle(element);
         return rect.width > 40 && rect.height > 20 && style.visibility !== 'hidden' && style.display !== 'none';
@@ -61,6 +66,13 @@
     }
 
     return null;
+  }
+
+  function getEditableTarget(input) {
+    if (!input) return null;
+    if ('value' in input) return input;
+    if (input.isContentEditable) return input;
+    return input.querySelector('[contenteditable="true"], .ProseMirror, [role="textbox"]') || input;
   }
 
   function getPromptText(input) {
@@ -81,7 +93,7 @@
 
   function replacePromptInput(value) {
     const nextValue = String(value || '').trim();
-    const input = findPromptInput();
+    const input = getEditableTarget(findPromptInput());
     if (!input) {
       setStatus('ChatGPT 입력창을 찾지 못했습니다.', true);
       return false;
@@ -96,7 +108,11 @@
 
     if ('value' in input) {
       setNativeValue(input, nextValue);
-      input.dispatchEvent(new Event('input', { bubbles: true }));
+      input.dispatchEvent(new InputEvent('input', {
+        bubbles: true,
+        inputType: 'insertReplacementText',
+        data: nextValue
+      }));
       input.dispatchEvent(new Event('change', { bubbles: true }));
       return true;
     }
@@ -107,10 +123,15 @@
     selection.removeAllRanges();
     selection.addRange(range);
     document.execCommand('delete', false);
-    document.execCommand('insertText', false, nextValue);
+    const inserted = document.execCommand('insertText', false, nextValue);
+
+    if (!inserted || getPromptText(input) !== nextValue) {
+      input.textContent = nextValue;
+    }
+
     input.dispatchEvent(new InputEvent('input', {
       bubbles: true,
-      inputType: 'insertText',
+      inputType: 'insertReplacementText',
       data: nextValue
     }));
     input.dispatchEvent(new Event('change', { bubbles: true }));
