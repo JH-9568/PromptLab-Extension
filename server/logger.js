@@ -61,8 +61,17 @@ function supabaseHeaders(prefer) {
   return headers;
 }
 
+function supabaseBaseUrl() {
+  const rawUrl = String(process.env.SUPABASE_URL || '').trim();
+  const parsed = new URL(rawUrl);
+  parsed.pathname = parsed.pathname.replace(/\/rest\/v1\/?.*$/, '').replace(/\/+$/, '');
+  parsed.search = '';
+  parsed.hash = '';
+  return parsed.toString().replace(/\/$/, '');
+}
+
 function supabaseUrl(query = '') {
-  const baseUrl = process.env.SUPABASE_URL.replace(/\/$/, '');
+  const baseUrl = supabaseBaseUrl();
   return `${baseUrl}/rest/v1/${SUPABASE_TABLE}${query}`;
 }
 
