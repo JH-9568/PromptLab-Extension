@@ -7,7 +7,7 @@
 
 #promptlab-fab {
   position: fixed;
-  right: 18px;
+  right: var(--promptlab-fab-right, 18px);
   bottom: var(--promptlab-fab-bottom, 18px);
   z-index: 2147483647;
   width: 48px;
@@ -37,34 +37,28 @@
 }
 
 #promptlab-fab.has-prompt {
-  border-color: #facc15;
-  box-shadow: 0 0 0 4px rgba(250, 204, 21, 0.16), 0 12px 34px rgba(168, 85, 247, 0.46);
+  border-color: rgba(216, 180, 254, 0.92);
+  box-shadow: 0 0 0 0 rgba(168, 85, 247, 0.42), 0 12px 34px rgba(168, 85, 247, 0.46);
+  animation: promptlab-pulse 1.45s ease-in-out infinite;
 }
 
-.promptlab-cue {
-  position: absolute;
-  right: -3px;
-  top: -4px;
-  display: none;
-  min-width: 18px;
-  height: 18px;
-  padding: 0 5px;
-  border: 2px solid #ffffff;
-  border-radius: 999px;
-  background: #facc15;
-  color: #2e1065;
-  font-size: 12px;
-  font-weight: 800;
-  line-height: 14px;
-}
+@keyframes promptlab-pulse {
+  0% {
+    box-shadow: 0 0 0 0 rgba(168, 85, 247, 0.42), 0 12px 34px rgba(168, 85, 247, 0.46);
+  }
 
-#promptlab-fab.has-prompt .promptlab-cue {
-  display: block;
+  70% {
+    box-shadow: 0 0 0 10px rgba(168, 85, 247, 0), 0 12px 34px rgba(168, 85, 247, 0.46);
+  }
+
+  100% {
+    box-shadow: 0 0 0 0 rgba(168, 85, 247, 0), 0 12px 34px rgba(168, 85, 247, 0.46);
+  }
 }
 
 #promptlab-panel {
   position: fixed;
-  right: 18px;
+  right: var(--promptlab-fab-right, 18px);
   bottom: calc(var(--promptlab-fab-bottom, 18px) + 58px);
   z-index: 2147483647;
   width: min(360px, calc(100vw - 36px));
@@ -79,7 +73,7 @@
 
 #promptlab-rating-toast {
   position: fixed;
-  right: 18px;
+  right: var(--promptlab-fab-right, 18px);
   bottom: calc(var(--promptlab-fab-bottom, 18px) + 58px);
   z-index: 2147483647;
   width: min(340px, calc(100vw - 36px));
@@ -363,18 +357,18 @@
 
 @media (max-width: 520px) {
   #promptlab-fab {
-    right: 12px;
+    right: var(--promptlab-fab-right, 12px);
     bottom: var(--promptlab-fab-bottom, 12px);
   }
 
   #promptlab-panel {
-    right: 12px;
+    right: var(--promptlab-fab-right, 12px);
     bottom: calc(var(--promptlab-fab-bottom, 12px) + 52px);
     width: calc(100vw - 24px);
   }
 
   #promptlab-rating-toast {
-    right: 12px;
+    right: var(--promptlab-fab-right, 12px);
     bottom: calc(var(--promptlab-fab-bottom, 12px) + 52px);
     width: calc(100vw - 24px);
   }

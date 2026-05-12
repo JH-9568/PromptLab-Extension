@@ -316,18 +316,13 @@
 
     const rect = input.getBoundingClientRect();
     const buttonSize = 48;
-    const gap = 14;
-    const defaultBottom = 18;
-    const defaultRight = 18;
-    const wouldOverlapVertically = rect.bottom > window.innerHeight - defaultBottom - buttonSize - gap;
-    const wouldOverlapHorizontally = rect.right > window.innerWidth - defaultRight - buttonSize - gap;
+    const gap = 10;
+    const rightInset = 12;
+    const bottom = Math.min(window.innerHeight - buttonSize - 12, Math.max(12, window.innerHeight - rect.top + gap));
+    const right = Math.min(window.innerWidth - buttonSize - 12, Math.max(12, window.innerWidth - rect.right + rightInset));
 
-    if (wouldOverlapVertically && wouldOverlapHorizontally) {
-      const bottom = Math.min(window.innerHeight - buttonSize - 12, Math.max(defaultBottom, window.innerHeight - rect.top + gap));
-      root.style.setProperty('--promptlab-fab-bottom', `${Math.round(bottom)}px`);
-    } else {
-      root.style.setProperty('--promptlab-fab-bottom', `${defaultBottom}px`);
-    }
+    root.style.setProperty('--promptlab-fab-bottom', `${Math.round(bottom)}px`);
+    root.style.setProperty('--promptlab-fab-right', `${Math.round(right)}px`);
   }
 
   function updateFabCue() {
@@ -519,7 +514,6 @@
     root.innerHTML = `
       <button id="promptlab-fab" type="button" aria-label="PromptLab 열기">
         <img src="${chrome.runtime.getURL('icons/icon48.png')}" alt="">
-        <span class="promptlab-cue" aria-hidden="true">!</span>
       </button>
       <section id="promptlab-panel" hidden>
         <header class="promptlab-header">
