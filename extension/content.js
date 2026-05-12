@@ -19,7 +19,8 @@
     improvedPrompt: '',
     taskCategory: DEFAULT_TASK_CATEGORY,
     response: null,
-    usedImproved: null
+    usedImproved: null,
+    satisfactionScore: null
   };
 
   function createId(prefix) {
@@ -210,6 +211,15 @@
     `;
 
     actions.hidden = false;
+    setSelectedRating(state.satisfactionScore);
+  }
+
+  function setSelectedRating(score) {
+    document.querySelectorAll('.promptlab-rating button').forEach((button) => {
+      const isSelected = Number(button.dataset.score) === score;
+      button.classList.toggle('is-selected', isSelected);
+      button.setAttribute('aria-pressed', String(isSelected));
+    });
   }
 
   function setStatus(message, isError = false) {
@@ -244,6 +254,7 @@
     state.taskCategory = category;
     state.response = null;
     state.usedImproved = null;
+    state.satisfactionScore = null;
 
     setBusy(true);
     setStatus('Sending prompt to local server...');
@@ -283,7 +294,9 @@
       return;
     }
 
-    setStatus('Saving feedback...');
+    state.satisfactionScore = satisfactionScore;
+    setSelectedRating(satisfactionScore);
+    setStatus(`만족도 ${satisfactionScore}점을 저장 중입니다...`);
 
     try {
       const [originalHash, improvedHash] = await Promise.all([
@@ -319,7 +332,7 @@
         throw new Error(`Server returned ${response.status}`);
       }
 
-      setStatus('Feedback saved.');
+      setStatus(`만족도 ${satisfactionScore}점이 저장되었습니다.`);
     } catch (error) {
       setStatus(`로그 저장 실패: ${error.message}`, true);
     }
@@ -396,14 +409,17 @@
     document.querySelector('#promptlab-insert').addEventListener('click', () => {
       if (replacePromptInput(state.improvedPrompt)) {
         state.usedImproved = true;
-        setStatus('개선본을 입력창에 넣었습니다.');
+        closePanel();
       }
     });
     document.querySelector('#promptlab-original').addEventListener('click', () => {
-      state.usedImproved = false;
-      setStatus('Original prompt selected.');
+      if (replacePromptInput(state.originalPrompt)) {
+        state.usedImproved = false;
+        closePanel();
+      }
     });
     document.querySelectorAll('.promptlab-rating button').forEach((button) => {
+      button.setAttribute('aria-pressed', 'false');
       button.addEventListener('click', () => sendLog(Number(button.dataset.score)));
     });
 

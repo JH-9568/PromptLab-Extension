@@ -297,6 +297,13 @@
   background: #f6f8fa;
 }
 
+.promptlab-rating button.is-selected {
+  border-color: #1f6f62;
+  background: #1f6f62;
+  color: #ffffff;
+  font-weight: 650;
+}
+
 @media (max-width: 520px) {
   #promptlab-fab {
     right: 12px;
