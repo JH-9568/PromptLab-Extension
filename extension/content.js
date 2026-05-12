@@ -23,7 +23,8 @@
     satisfactionScore: null,
     awaitingRating: false,
     assistantMessageBaseline: 0,
-    answerCheckTimer: null
+    answerCheckTimer: null,
+    answerCheckStartedAt: 0
   };
 
   function createId(prefix) {
@@ -261,14 +262,35 @@
     setRatingStatus('');
   }
 
-  function scheduleAnswerCheck() {
+  function stopAnswerCheck() {
+    clearInterval(state.answerCheckTimer);
+    state.answerCheckTimer = null;
+    state.answerCheckStartedAt = 0;
+  }
+
+  function startAnswerCheck() {
+    stopAnswerCheck();
+
     if (!state.awaitingRating || state.satisfactionScore) return;
-    clearTimeout(state.answerCheckTimer);
-    state.answerCheckTimer = setTimeout(() => {
+
+    state.answerCheckStartedAt = Date.now();
+    state.answerCheckTimer = setInterval(() => {
+      if (!state.awaitingRating || state.satisfactionScore) {
+        stopAnswerCheck();
+        return;
+      }
+
       if (hasNewAssistantAnswer()) {
         showRatingPrompt();
+        stopAnswerCheck();
+        return;
       }
-    }, 900);
+
+      if (Date.now() - state.answerCheckStartedAt > 120000) {
+        state.awaitingRating = false;
+        stopAnswerCheck();
+      }
+    }, 1500);
   }
 
   function setStatus(message, isError = false) {
@@ -306,6 +328,7 @@
     state.satisfactionScore = null;
     state.awaitingRating = false;
     state.assistantMessageBaseline = getAssistantMessageCount();
+    stopAnswerCheck();
     hideRatingPrompt();
 
     setBusy(true);
@@ -386,6 +409,7 @@
 
       setRatingStatus(`만족도 ${satisfactionScore}점이 저장되었습니다.`);
       state.awaitingRating = false;
+      stopAnswerCheck();
       setTimeout(hideRatingPrompt, 450);
     } catch (error) {
       state.satisfactionScore = null;
@@ -403,7 +427,7 @@
     state.assistantMessageBaseline = getAssistantMessageCount();
     hideRatingPrompt();
     closePanel();
-    scheduleAnswerCheck();
+    startAnswerCheck();
   }
 
   function openPanel() {
@@ -498,11 +522,10 @@
       if (!document.querySelector('#promptlab-root')) {
         insertUi();
       }
-      scheduleAnswerCheck();
     });
 
     if (document.body) {
-      observer.observe(document.body, { childList: true, subtree: true });
+      observer.observe(document.body, { childList: true });
     }
   }
 
