@@ -19,10 +19,10 @@ function stripFullPrompts(payload) {
 
   return {
     ...rest,
-    original_prompt_hash: originalPrompt ? hashText(originalPrompt) : undefined,
-    improved_prompt_hash: improvedPrompt ? hashText(improvedPrompt) : undefined,
-    original_prompt_length: originalPrompt ? String(originalPrompt).length : undefined,
-    improved_prompt_length: improvedPrompt ? String(improvedPrompt).length : undefined
+    original_prompt_hash: originalPrompt ? hashText(originalPrompt) : rest.original_prompt_hash,
+    improved_prompt_hash: improvedPrompt ? hashText(improvedPrompt) : rest.improved_prompt_hash,
+    original_prompt_length: originalPrompt ? String(originalPrompt).length : rest.original_prompt_length,
+    improved_prompt_length: improvedPrompt ? String(improvedPrompt).length : rest.improved_prompt_length
   };
 }
 

@@ -23,9 +23,12 @@
     satisfactionScore: null,
     awaitingRating: false,
     assistantMessageBaseline: 0,
+    assistantTextBaseline: '',
+    activePrompt: '',
     answerCheckTimer: null,
     answerCheckStartedAt: 0,
-    promptWatchTimer: null
+    promptWatchTimer: null,
+    answerObserver: null
   };
 
   function createId(prefix) {
@@ -84,8 +87,17 @@
     return getAssistantMessages().length;
   }
 
+  function getAssistantTextSnapshot() {
+    return getAssistantMessages()
+      .map((element) => (element.innerText || element.textContent || '').trim())
+      .join('\n---promptlab-message---\n');
+  }
+
   function hasNewAssistantAnswer() {
-    return getAssistantMessageCount() > state.assistantMessageBaseline;
+    return (
+      getAssistantMessageCount() > state.assistantMessageBaseline
+      || getAssistantTextSnapshot() !== state.assistantTextBaseline
+    );
   }
 
   function getEditableTarget(input) {
@@ -267,6 +279,11 @@
     clearInterval(state.answerCheckTimer);
     state.answerCheckTimer = null;
     state.answerCheckStartedAt = 0;
+
+    if (state.answerObserver) {
+      state.answerObserver.disconnect();
+      state.answerObserver = null;
+    }
   }
 
   function startAnswerCheck() {
@@ -274,7 +291,26 @@
 
     if (!state.awaitingRating || state.satisfactionScore) return;
 
+    const checkForAnswer = () => {
+      if (!state.awaitingRating || state.satisfactionScore) {
+        stopAnswerCheck();
+        return;
+      }
+
+      if (hasNewAssistantAnswer()) {
+        showRatingPrompt();
+        stopAnswerCheck();
+      }
+    };
+
     state.answerCheckStartedAt = Date.now();
+    state.answerObserver = new MutationObserver(checkForAnswer);
+    state.answerObserver.observe(document.body, {
+      childList: true,
+      subtree: true,
+      characterData: true
+    });
+
     state.answerCheckTimer = setInterval(() => {
       if (!state.awaitingRating || state.satisfactionScore) {
         stopAnswerCheck();
@@ -324,6 +360,19 @@
 
     updateFabPlacement();
     const prompt = getPromptText(findPromptInput());
+
+    if (
+      state.awaitingRating
+      && !state.satisfactionScore
+      && !hasNewAssistantAnswer()
+      && prompt
+      && state.activePrompt
+      && prompt !== state.activePrompt
+    ) {
+      resetPromptSession();
+      renderResult();
+    }
+
     const shouldCue = Boolean(prompt) && !state.isOpen && !state.response && !state.awaitingRating;
     button.classList.toggle('has-prompt', shouldCue);
     button.setAttribute('aria-label', shouldCue ? '프롬프트 개선 가능' : 'PromptLab 열기');
@@ -345,6 +394,8 @@
     state.satisfactionScore = null;
     state.awaitingRating = false;
     state.assistantMessageBaseline = getAssistantMessageCount();
+    state.assistantTextBaseline = getAssistantTextSnapshot();
+    state.activePrompt = '';
     stopAnswerCheck();
     hideRatingPrompt();
     updateFabCue();
@@ -371,6 +422,8 @@
     state.satisfactionScore = null;
     state.awaitingRating = false;
     state.assistantMessageBaseline = getAssistantMessageCount();
+    state.assistantTextBaseline = getAssistantTextSnapshot();
+    state.activePrompt = '';
     stopAnswerCheck();
     hideRatingPrompt();
 
@@ -471,6 +524,8 @@
     state.satisfactionScore = null;
     state.awaitingRating = true;
     state.assistantMessageBaseline = getAssistantMessageCount();
+    state.assistantTextBaseline = getAssistantTextSnapshot();
+    state.activePrompt = String(promptText || '').trim();
     hideRatingPrompt();
     closePanel();
     startAnswerCheck();

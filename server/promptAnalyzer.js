@@ -39,9 +39,7 @@ function analyzePrompt(prompt = '') {
   };
 
   const matchedSignals = Object.values(result).filter(Boolean).length;
-  const lengthBonus = normalizedPrompt.length >= 80 ? 10 : normalizedPrompt.length >= 40 ? 5 : 0;
-
-  result.specificity_score = Math.min(100, matchedSignals * 18 + lengthBonus);
+  result.specificity_score = matchedSignals * 20;
 
   return result;
 }
