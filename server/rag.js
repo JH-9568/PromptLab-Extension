@@ -30,6 +30,31 @@ function buildClarificationPrompt() {
   ].join(' ');
 }
 
+function isWritingPlanRequest(prompt) {
+  return /보고서|리포트|레포트|과제|글|essay|report/i.test(prompt)
+    && /오늘|지금|급|어케|어떻게|뭐부터|시작|작성|써야|써야함|써야 함|쓸건데|쓸 건데|해야|해야함|해야 함/i.test(prompt);
+}
+
+function buildWritingPlanPrompt({ originalPrompt }) {
+  const prompt = String(originalPrompt || '').trim();
+  const subject = prompt
+    .replace(/오늘|지금|급하게|급|어케|어떻게|뭐부터|시작|쓸건데|쓸 건데|써야함|써야 함|해야함|해야 함|해야|써야|쓸|씀|함/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+  const subjectWords = subject.split(/\s+/).filter(Boolean);
+  const target = /보고서|리포트|레포트|report/i.test(subject) && subjectWords.length > 1
+    ? subject
+    : '보고서';
+
+  return [
+    `제한된 시간 안에 ${target}를 작성해야 합니다.`,
+    '주제, 분량, 제출 형식, 평가 기준이 아직 명확하지 않을 수 있다는 점을 고려해 먼저 확인해야 할 정보를 5개 이하로 정리해주세요.',
+    '그다음 바로 작성에 들어갈 수 있도록 자료 정리, 목차 구성, 초안 작성, 문장 다듬기, 최종 점검 순서로 단계별 작업 계획을 제안해주세요.',
+    '각 단계별 우선순위와 예상 소요 시간을 포함하고, 정보가 부족해도 적용할 수 있는 기본 목차 템플릿과 첫 문단 작성 예시를 함께 제시해주세요.',
+    '마지막에는 추가로 확인하면 좋은 질문을 따로 정리해주세요.'
+  ].join(' ');
+}
+
 function buildFallbackPrompt({ originalPrompt, taskCategory, guidelines }) {
   const categoryLabel = taskCategory || 'general';
   const prompt = String(originalPrompt || '').trim();
@@ -37,6 +62,10 @@ function buildFallbackPrompt({ originalPrompt, taskCategory, guidelines }) {
 
   if (isLowInformationPrompt(prompt)) {
     return buildClarificationPrompt();
+  }
+
+  if (isWritingPlanRequest(prompt)) {
+    return buildWritingPlanPrompt({ originalPrompt: prompt });
   }
 
   const isTestRequest = /테스트|test|qa|검증|확인|실행/.test(lowerPrompt);
@@ -108,6 +137,13 @@ async function generateImprovedPrompt({ originalPrompt, taskCategory, guidelines
     };
   }
 
+  if (isWritingPlanRequest(String(originalPrompt || '').trim())) {
+    return {
+      improved_prompt: buildWritingPlanPrompt({ originalPrompt }),
+      provider: 'rule_based'
+    };
+  }
+
   if (!process.env.OPENAI_API_KEY) {
     return {
       improved_prompt: buildFallbackPrompt({ originalPrompt, taskCategory, guidelines }),
@@ -130,6 +166,7 @@ async function generateImprovedPrompt({ originalPrompt, taskCategory, guidelines
             'task category는 참고 정보일 뿐이며, 원본 요청의 실제 의도를 가장 우선하라.',
             '원본 요청이 짧거나 구어체이면 그대로 감싸지 말고 의도를 추론해 자연스러운 실행 프롬프트로 확장하라.',
             '원본 요청이 인사말뿐이거나 작업 목표가 없으면 답변하지 말고, 사용자가 주제, 목표, 맥락, 출력 형식, 제약 조건을 제공하도록 돕는 clarification 프롬프트로 다시 작성하라.',
+            '원본 요청에 보고서, 과제, 글쓰기와 함께 "어케", "어떻게", "뭐부터", "오늘", "급" 같은 표현이 있으면 정보 요청만 하지 말고, 제한된 시간 안에 작성하도록 돕는 단계별 작성 계획 프롬프트로 확장하라.',
             '출력은 개선된 프롬프트만 하라.',
             '설명, 제목, 마크다운, 섹션 구분, markdown code fence를 출력하지 마라.'
           ].join(' ')
