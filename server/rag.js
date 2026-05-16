@@ -25,15 +25,22 @@ function isLowInformationPrompt(value) {
 function buildClarificationPrompt() {
   return [
     '제가 원하는 답변을 받을 수 있도록 질문을 구체화하려고 합니다.',
-    '먼저 어떤 주제에 대해 어떤 도움을 받고 싶은지 파악할 수 있도록 필요한 정보를 간단히 질문해주세요.',
-    '질문은 목표, 배경 맥락, 원하는 출력 형식, 제약 조건을 중심으로 정리해주세요.',
-    '제가 답한 내용을 바탕으로 바로 사용할 수 있는 최종 프롬프트를 다시 작성해주세요.'
+    '주제, 목표, 원하는 출력 형식, 반드시 지켜야 할 조건을 간단히 질문한 뒤, 답변을 바탕으로 바로 사용할 수 있는 최종 프롬프트를 작성해주세요.'
   ].join(' ');
 }
 
 function isWritingPlanRequest(prompt) {
   return /보고서|리포트|레포트|과제|글|essay|report/i.test(prompt)
     && /오늘|지금|급|어케|어떻게|뭐부터|시작|작성|써야|써야함|써야 함|쓸건데|쓸 건데|해야|해야함|해야 함/i.test(prompt);
+}
+
+function isTextRevisionRequest(prompt) {
+  return /문장|글|표현|말투|text|sentence/i.test(prompt)
+    && /자연스럽|고쳐|수정|다듬|교정|rewrite|revise|polish/i.test(prompt);
+}
+
+function buildTextRevisionPrompt() {
+  return '입력한 문장의 의미는 유지하면서 더 자연스럽고 매끄러운 표현으로 고쳐주세요. 어색한 부분이 있다면 수정 이유를 간단히 설명해주세요.';
 }
 
 function buildWritingPlanPrompt({ originalPrompt }) {
@@ -49,10 +56,8 @@ function buildWritingPlanPrompt({ originalPrompt }) {
 
   return [
     `오늘 안에 ${target}를 작성해야 합니다.`,
-    '현재 주제나 요구사항이 충분히 정리되지 않은 상황이라고 가정하고, 바로 시작할 수 있는 작성 전략을 제안해주세요.',
-    '자료 정리, 목차 구성, 초안 작성, 문장 다듬기, 최종 점검 순서로 단계별 작업 계획을 세워주세요.',
-    '각 단계별 우선순위와 예상 소요 시간을 포함하고, 보고서에 사용할 수 있는 기본 목차 템플릿도 함께 제시해주세요.',
-    '추가로 확인하면 좋은 정보는 마지막에 따로 정리해주세요.'
+    '주제나 요구사항이 아직 충분히 정리되지 않은 상황이라고 가정하고, 자료 정리, 목차 구성, 초안 작성, 검토 순서로 단계별 작성 계획을 간결하게 제안해주세요.',
+    '바로 사용할 수 있는 기본 목차 템플릿도 함께 제시해주세요.'
   ].join(' ');
 }
 
@@ -67,6 +72,10 @@ function buildFallbackPrompt({ originalPrompt, taskCategory, guidelines }) {
 
   if (isWritingPlanRequest(prompt)) {
     return buildWritingPlanPrompt({ originalPrompt: prompt });
+  }
+
+  if (isTextRevisionRequest(prompt)) {
+    return buildTextRevisionPrompt();
   }
 
   const isTestRequest = /테스트|test|qa|검증|확인|실행/.test(lowerPrompt);
@@ -90,9 +99,7 @@ function buildFallbackPrompt({ originalPrompt, taskCategory, guidelines }) {
     return [
       `${target} 주제를 정하려고 합니다.`,
       '수업 수준, 사용 가능한 데이터, 분석 방법, 평가 기준을 고려해서 적합한 프로젝트 주제 후보를 제안해주세요.',
-      '각 주제별로 문제 정의, 활용 가능한 데이터, 분석 방법, 예상 결과물, 난이도, 장단점, 추천 이유를 비교해주세요.',
-      '마지막에는 가장 추천하는 주제와 선택 이유, 바로 시작할 수 있는 진행 계획을 정리해주세요.',
-      '불확실한 부분은 마지막에 필요한 확인 사항으로 따로 정리해주세요.'
+      '각 후보별 장단점과 가장 추천하는 주제를 간단히 비교해주세요.'
     ].join(' ');
   }
 
@@ -103,28 +110,25 @@ function buildFallbackPrompt({ originalPrompt, taskCategory, guidelines }) {
 
     return [
       `${target}을 테스트하려고 합니다.`,
-      '사용자가 작성한 프롬프트가 정상적으로 실행되고, 입력값에 따라 LLM 응답이 올바르게 생성되는지 확인하기 위한 테스트 계획을 작성해주세요.',
-      '테스트 목적, 주요 테스트 항목, 정상 동작 기준, 예외 상황, 오류 케이스, 결과 기록 양식을 포함하고, 개발팀이 바로 사용할 수 있는 QA 체크리스트 형식으로 정리해주세요.',
-      '불확실한 부분은 마지막에 필요한 확인 사항으로 따로 정리해주세요.'
+      '정상 동작 기준, 주요 테스트 항목, 예외 상황, 결과 기록 방법을 QA 체크리스트 형식으로 간결하게 정리해주세요.'
     ].join(' ');
   }
 
   if (isPlanRequest) {
     return [
       `${subject}에 대한 실행 계획을 작성해주세요.`,
-      '목표, 범위, 필요한 준비물, 단계별 작업, 예상 리스크, 완료 기준을 포함해주세요.',
-      '팀원이 바로 따라 할 수 있도록 체크리스트 형식으로 정리하고, 불확실한 부분은 마지막에 확인 사항으로 분리해주세요.'
+      '목표, 단계별 작업, 예상 리스크, 완료 기준을 체크리스트 형식으로 간결하게 정리해주세요.'
     ].join(' ');
   }
 
   const categoryTemplates = {
-    study: `${subject}을 학습하려고 합니다. 학습 목표, 필요한 배경 지식, 핵심 개념, 쉬운 예시, 단계별 설명, 이해 점검 질문을 포함해서 초보자도 따라갈 수 있게 설명해주세요. 불확실한 부분은 마지막에 필요한 확인 사항으로 정리해주세요.`,
-    coding: `${subject} 문제를 해결하려고 합니다. 현재 동작, 기대 동작, 가능한 원인, 확인해야 할 코드나 설정, 수정 방향, 검증 방법을 포함해서 개발자가 바로 적용할 수 있게 정리해주세요. 정보가 부족하면 마지막에 필요한 확인 사항을 따로 적어주세요.`,
-    writing: `${subject}에 대한 글을 작성하려고 합니다. 대상 독자, 글의 목적, 핵심 메시지, 적절한 톤, 구성, 길이 기준을 반영해서 바로 사용할 수 있는 초안을 작성해주세요. 추가 정보가 필요하면 마지막에 확인 사항으로 정리해주세요.`,
-    summary: `${subject}을 요약하려고 합니다. 핵심 내용, 중요한 사실, 결정 사항, 리스크, 액션 아이템을 구분해서 정리하고, 원문에 없는 내용은 추측하지 말아주세요. 부족한 정보는 마지막에 확인 사항으로 적어주세요.`,
-    analysis: `${subject}을 분석하려고 합니다. 분석 목적, 판단 기준, 핵심 근거, 대안, 장단점, 리스크, 최종 추천안을 포함해서 구조적으로 정리해주세요. 불확실한 부분은 마지막에 필요한 확인 사항으로 분리해주세요.`,
-    etc: `${subject}에 대한 요청을 수행해주세요. 목표, 배경, 필요한 작업 범위, 출력 형식, 제약 조건, 완료 기준을 명확히 반영해서 바로 실행 가능한 결과를 작성해주세요. 불확실한 부분은 마지막에 필요한 확인 사항으로 정리해주세요.`,
-    general: `${subject}에 대한 요청을 수행해주세요. 목표, 배경, 필요한 작업 범위, 출력 형식, 제약 조건, 완료 기준을 명확히 반영해서 바로 실행 가능한 결과를 작성해주세요. 불확실한 부분은 마지막에 필요한 확인 사항으로 정리해주세요.`
+    study: `${subject}을 학습하려고 합니다. 핵심 개념, 쉬운 예시, 단계별 설명을 중심으로 초보자도 이해할 수 있게 설명해주세요.`,
+    coding: `${subject} 문제를 해결하려고 합니다. 가능한 원인, 수정 방향, 검증 방법을 개발자가 바로 적용할 수 있게 정리해주세요.`,
+    writing: `${subject}에 대한 글을 작성하려고 합니다. 핵심 메시지가 잘 드러나도록 자연스러운 구성과 문장으로 초안을 작성해주세요.`,
+    summary: `${subject}을 요약하려고 합니다. 핵심 내용과 중요한 사실을 간결하게 정리하고, 원문에 없는 내용은 추측하지 말아주세요.`,
+    analysis: `${subject}을 분석하려고 합니다. 핵심 근거, 장단점, 리스크, 최종 의견을 구조적으로 정리해주세요.`,
+    etc: `${subject}에 대한 요청을 수행해주세요. 목표와 필요한 작업을 명확히 반영해서 바로 실행 가능한 결과를 작성해주세요.`,
+    general: `${subject}에 대한 요청을 수행해주세요. 목표와 필요한 작업을 명확히 반영해서 바로 실행 가능한 결과를 작성해주세요.`
   };
 
   return categoryTemplates[categoryLabel] || categoryTemplates.general;
@@ -141,6 +145,13 @@ async function generateImprovedPrompt({ originalPrompt, taskCategory, guidelines
   if (isWritingPlanRequest(String(originalPrompt || '').trim())) {
     return {
       improved_prompt: buildWritingPlanPrompt({ originalPrompt }),
+      provider: 'rule_based'
+    };
+  }
+
+  if (isTextRevisionRequest(String(originalPrompt || '').trim())) {
+    return {
+      improved_prompt: buildTextRevisionPrompt(),
       provider: 'rule_based'
     };
   }
@@ -166,6 +177,9 @@ async function generateImprovedPrompt({ originalPrompt, taskCategory, guidelines
             'retrieved guidelines는 답변 생성 기준이 아니라 프롬프트 rewrite 기준으로만 사용하라.',
             'task category는 참고 정보일 뿐이며, 원본 요청의 실제 의도를 가장 우선하라.',
             '원본 요청이 짧거나 구어체이면 그대로 감싸지 말고 의도를 추론해 자연스러운 실행 프롬프트로 확장하라.',
+            '원본 요청이 짧고 단순한 경우에는 1~3문장 수준으로만 개선하라.',
+            '모든 요청에 goal, context, format, constraint, reference를 억지로 포함하지 말고 실제로 도움이 되는 요소만 추가하라.',
+            '개선된 프롬프트는 원본보다 명확해야 하지만 원본의 작업 규모를 과도하게 키우지 마라.',
             '원본에 부족한 정보가 있어도 중괄호 placeholder를 만들지 말고, 현재 정보만으로 자연스럽게 실행 가능한 프롬프트로 작성하라.',
             '원본 요청이 인사말뿐이거나 작업 목표가 없으면 답변하지 말고, 필요한 정보를 확인한 뒤 최종 프롬프트를 작성하도록 요청하는 프롬프트로 다시 작성하라.',
             '원본 요청에 보고서, 과제, 글쓰기와 함께 "어케", "어떻게", "뭐부터", "오늘", "급" 같은 표현이 있으면 정보 요청만 하지 말고, 제한된 시간 안에 작성하도록 돕는 단계별 작성 계획 프롬프트로 확장하라.',
