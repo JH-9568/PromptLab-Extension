@@ -9,10 +9,36 @@ function sanitizeImprovedPrompt(value) {
     .trim();
 }
 
+function isLowInformationPrompt(value) {
+  const prompt = String(value || '').trim();
+  const compactPrompt = prompt
+    .toLowerCase()
+    .replace(/[\s~!?.。,，ㅋㅠㅜㅡ\-_/\\|"'`()[\]{}:;]/g, '');
+
+  if (!compactPrompt) return true;
+
+  return /^(ㅎㅇ)+$/.test(compactPrompt)
+    || /^(hi|hello|hey|yo|sup)$/.test(compactPrompt)
+    || /^(안녕|안녕하세요|하이|헬로|반가워|반갑습니다)$/.test(compactPrompt);
+}
+
+function buildClarificationPrompt() {
+  return [
+    '제가 원하는 답변을 받기 위해 질문을 더 구체화하려고 합니다.',
+    '먼저 제가 어떤 도움을 받고 싶은지 파악할 수 있도록 주제, 목표, 배경 맥락, 원하는 출력 형식, 제약 조건을 차례로 질문해주세요.',
+    '제가 답한 내용을 바탕으로 바로 실행 가능한 최종 프롬프트를 한 번 더 정리해주세요.'
+  ].join(' ');
+}
+
 function buildFallbackPrompt({ originalPrompt, taskCategory, guidelines }) {
   const categoryLabel = taskCategory || 'general';
   const prompt = String(originalPrompt || '').trim();
   const lowerPrompt = prompt.toLowerCase();
+
+  if (isLowInformationPrompt(prompt)) {
+    return buildClarificationPrompt();
+  }
+
   const isTestRequest = /테스트|test|qa|검증|확인|실행/.test(lowerPrompt);
   const isPlanRequest = /계획|plan|체크리스트|checklist/.test(lowerPrompt);
   const isTopicSelectionRequest = /주제|topic|아이디어|프로젝트/.test(lowerPrompt)
@@ -75,6 +101,13 @@ function buildFallbackPrompt({ originalPrompt, taskCategory, guidelines }) {
 }
 
 async function generateImprovedPrompt({ originalPrompt, taskCategory, guidelines }) {
+  if (isLowInformationPrompt(originalPrompt)) {
+    return {
+      improved_prompt: buildClarificationPrompt(),
+      provider: 'rule_based'
+    };
+  }
+
   if (!process.env.OPENAI_API_KEY) {
     return {
       improved_prompt: buildFallbackPrompt({ originalPrompt, taskCategory, guidelines }),
@@ -96,6 +129,7 @@ async function generateImprovedPrompt({ originalPrompt, taskCategory, guidelines
             'retrieved guidelines는 답변 생성 기준이 아니라 프롬프트 rewrite 기준으로만 사용하라.',
             'task category는 참고 정보일 뿐이며, 원본 요청의 실제 의도를 가장 우선하라.',
             '원본 요청이 짧거나 구어체이면 그대로 감싸지 말고 의도를 추론해 자연스러운 실행 프롬프트로 확장하라.',
+            '원본 요청이 인사말뿐이거나 작업 목표가 없으면 답변하지 말고, 사용자가 주제, 목표, 맥락, 출력 형식, 제약 조건을 제공하도록 돕는 clarification 프롬프트로 다시 작성하라.',
             '출력은 개선된 프롬프트만 하라.',
             '설명, 제목, 마크다운, 섹션 구분, markdown code fence를 출력하지 마라.'
           ].join(' ')
