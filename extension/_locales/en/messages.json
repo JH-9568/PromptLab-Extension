@@ -1,0 +1,114 @@
+{
+  "extensionName": {
+    "message": "PromptLab Extension"
+  },
+  "extensionDescription": {
+    "message": "Analyze and improve prompts on ChatGPT with PromptLab."
+  },
+  "inputNotFound": {
+    "message": "Could not find the ChatGPT input box."
+  },
+  "noImprovedPrompt": {
+    "message": "No improved prompt is available to insert."
+  },
+  "emptyResult": {
+    "message": "Analyze a prompt to see the improved version and specificity scores."
+  },
+  "improvedPromptLabel": {
+    "message": "Improved Prompt"
+  },
+  "ratingPrompt": {
+    "message": "Rate the answer quality."
+  },
+  "busy": {
+    "message": "Improving..."
+  },
+  "improveButton": {
+    "message": "Improve prompt"
+  },
+  "improveAvailable": {
+    "message": "Prompt improvement available"
+  },
+  "openPromptLab": {
+    "message": "Open PromptLab"
+  },
+  "noPrompt": {
+    "message": "There is no prompt in the ChatGPT input box."
+  },
+  "improving": {
+    "message": "Improving the prompt..."
+  },
+  "ready": {
+    "message": "Improved prompt is ready."
+  },
+  "serverError": {
+    "message": "Server request failed"
+  },
+  "analyzeFirst": {
+    "message": "Analyze a prompt first."
+  },
+  "savingRating": {
+    "message": "Saving rating $SCORE$...",
+    "placeholders": {
+      "score": {
+        "content": "$1"
+      }
+    }
+  },
+  "savedRating": {
+    "message": "Rating $SCORE$ saved.",
+    "placeholders": {
+      "score": {
+        "content": "$1"
+      }
+    }
+  },
+  "logError": {
+    "message": "Failed to save log"
+  },
+  "subtitle": {
+    "message": "Prompt improvement tool"
+  },
+  "currentPrompt": {
+    "message": "Current prompt"
+  },
+  "insertImproved": {
+    "message": "Insert improved"
+  },
+  "keepOriginal": {
+    "message": "Keep original"
+  },
+  "ratingTitle": {
+    "message": "Answer rating"
+  },
+  "anonymousUserId": {
+    "message": "Anonymous user_id"
+  },
+  "server": {
+    "message": "Server"
+  },
+  "loading": {
+    "message": "Loading..."
+  },
+  "checking": {
+    "message": "Checking..."
+  },
+  "connected": {
+    "message": "Connected"
+  },
+  "disconnected": {
+    "message": "Disconnected"
+  },
+  "popupStep1": {
+    "message": "Write a prompt in ChatGPT."
+  },
+  "popupStep2": {
+    "message": "Click the PromptLab button."
+  },
+  "popupStep3": {
+    "message": "Improve the prompt and insert it into the input box."
+  },
+  "popupStep4": {
+    "message": "Rate the answer after ChatGPT responds."
+  }
+}

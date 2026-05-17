@@ -1,0 +1,114 @@
+{
+  "extensionName": {
+    "message": "PromptLab Extension"
+  },
+  "extensionDescription": {
+    "message": "ChatGPT에서 프롬프트를 분석하고 개선하는 PromptLab 확장 프로그램입니다."
+  },
+  "inputNotFound": {
+    "message": "ChatGPT 입력창을 찾지 못했습니다."
+  },
+  "noImprovedPrompt": {
+    "message": "삽입할 개선 프롬프트가 없습니다."
+  },
+  "emptyResult": {
+    "message": "프롬프트를 분석하면 개선본과 구체성 점수를 확인할 수 있습니다."
+  },
+  "improvedPromptLabel": {
+    "message": "개선된 프롬프트"
+  },
+  "ratingPrompt": {
+    "message": "답변 만족도를 선택해 주세요."
+  },
+  "busy": {
+    "message": "개선 중..."
+  },
+  "improveButton": {
+    "message": "프롬프트 개선하기"
+  },
+  "improveAvailable": {
+    "message": "프롬프트 개선 가능"
+  },
+  "openPromptLab": {
+    "message": "PromptLab 열기"
+  },
+  "noPrompt": {
+    "message": "현재 ChatGPT 입력창에 프롬프트가 없습니다."
+  },
+  "improving": {
+    "message": "프롬프트를 개선하고 있습니다..."
+  },
+  "ready": {
+    "message": "개선된 프롬프트가 준비되었습니다."
+  },
+  "serverError": {
+    "message": "서버 요청 실패"
+  },
+  "analyzeFirst": {
+    "message": "먼저 프롬프트를 분석해 주세요."
+  },
+  "savingRating": {
+    "message": "만족도 $SCORE$점을 저장 중입니다...",
+    "placeholders": {
+      "score": {
+        "content": "$1"
+      }
+    }
+  },
+  "savedRating": {
+    "message": "만족도 $SCORE$점이 저장되었습니다.",
+    "placeholders": {
+      "score": {
+        "content": "$1"
+      }
+    }
+  },
+  "logError": {
+    "message": "로그 저장 실패"
+  },
+  "subtitle": {
+    "message": "프롬프트 개선 도구"
+  },
+  "currentPrompt": {
+    "message": "현재 프롬프트"
+  },
+  "insertImproved": {
+    "message": "개선본 넣기"
+  },
+  "keepOriginal": {
+    "message": "원본 유지"
+  },
+  "ratingTitle": {
+    "message": "답변 만족도"
+  },
+  "anonymousUserId": {
+    "message": "Anonymous user_id"
+  },
+  "server": {
+    "message": "Server"
+  },
+  "loading": {
+    "message": "Loading..."
+  },
+  "checking": {
+    "message": "Checking..."
+  },
+  "connected": {
+    "message": "Connected"
+  },
+  "disconnected": {
+    "message": "Disconnected"
+  },
+  "popupStep1": {
+    "message": "ChatGPT에서 프롬프트를 작성하세요."
+  },
+  "popupStep2": {
+    "message": "PromptLab 버튼을 누르세요."
+  },
+  "popupStep3": {
+    "message": "프롬프트를 개선하고 입력창에 넣으세요."
+  },
+  "popupStep4": {
+    "message": "답변이 나온 뒤 만족도를 평가하세요."
+  }
+}

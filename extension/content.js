@@ -11,53 +11,30 @@
   ];
   const DEFAULT_TASK_CATEGORY = 'etc';
   const CLIENT_LANGUAGE = navigator.languages?.[0] || navigator.language || 'en';
-  const IS_KOREAN_UI = /^ko\b/i.test(CLIENT_LANGUAGE);
-  const UI_TEXT = IS_KOREAN_UI ? {
-    inputNotFound: 'ChatGPT 입력창을 찾지 못했습니다.',
-    noImprovedPrompt: '삽입할 개선 프롬프트가 없습니다.',
-    emptyResult: 'Analyze a prompt to see the improved version and specificity scores.',
-    improvedPromptLabel: 'Improved Prompt',
-    ratingPrompt: '답변 만족도를 선택해 주세요.',
-    busy: '개선 중...',
-    improveButton: '프롬프트 개선하기',
-    improveAvailable: '프롬프트 개선 가능',
-    openPromptLab: 'PromptLab 열기',
-    noPrompt: '현재 ChatGPT 입력창에 프롬프트가 없습니다.',
-    improving: '프롬프트를 개선하고 있습니다...',
-    ready: '개선된 프롬프트가 준비되었습니다.',
-    serverError: '서버 요청 실패',
-    analyzeFirst: '먼저 프롬프트를 분석해 주세요.',
-    savingRating: (score) => `만족도 ${score}점을 저장 중입니다...`,
-    savedRating: (score) => `만족도 ${score}점이 저장되었습니다.`,
-    logError: '로그 저장 실패',
-    subtitle: '프롬프트 개선 도구',
-    currentPrompt: '현재 프롬프트',
-    insertImproved: '개선본 넣기',
-    keepOriginal: '원본 유지',
-    ratingTitle: '답변 만족도'
-  } : {
-    inputNotFound: 'Could not find the ChatGPT input box.',
-    noImprovedPrompt: 'No improved prompt is available to insert.',
-    emptyResult: 'Analyze a prompt to see the improved version and specificity scores.',
-    improvedPromptLabel: 'Improved Prompt',
-    ratingPrompt: 'Rate the answer quality.',
-    busy: 'Improving...',
-    improveButton: 'Improve prompt',
-    improveAvailable: 'Prompt improvement available',
-    openPromptLab: 'Open PromptLab',
-    noPrompt: 'There is no prompt in the ChatGPT input box.',
-    improving: 'Improving the prompt...',
-    ready: 'Improved prompt is ready.',
-    serverError: 'Server request failed',
-    analyzeFirst: 'Analyze a prompt first.',
-    savingRating: (score) => `Saving rating ${score}...`,
-    savedRating: (score) => `Rating ${score} saved.`,
-    logError: 'Failed to save log',
-    subtitle: 'Prompt improvement tool',
-    currentPrompt: 'Current prompt',
-    insertImproved: 'Insert improved',
-    keepOriginal: 'Keep original',
-    ratingTitle: 'Answer rating'
+  const i18n = (key, substitutions) => chrome.i18n.getMessage(key, substitutions) || key;
+  const UI_TEXT = {
+    inputNotFound: i18n('inputNotFound'),
+    noImprovedPrompt: i18n('noImprovedPrompt'),
+    emptyResult: i18n('emptyResult'),
+    improvedPromptLabel: i18n('improvedPromptLabel'),
+    ratingPrompt: i18n('ratingPrompt'),
+    busy: i18n('busy'),
+    improveButton: i18n('improveButton'),
+    improveAvailable: i18n('improveAvailable'),
+    openPromptLab: i18n('openPromptLab'),
+    noPrompt: i18n('noPrompt'),
+    improving: i18n('improving'),
+    ready: i18n('ready'),
+    serverError: i18n('serverError'),
+    analyzeFirst: i18n('analyzeFirst'),
+    savingRating: (score) => i18n('savingRating', [String(score)]),
+    savedRating: (score) => i18n('savedRating', [String(score)]),
+    logError: i18n('logError'),
+    subtitle: i18n('subtitle'),
+    currentPrompt: i18n('currentPrompt'),
+    insertImproved: i18n('insertImproved'),
+    keepOriginal: i18n('keepOriginal'),
+    ratingTitle: i18n('ratingTitle')
   };
 
   let state = {

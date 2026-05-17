@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="ko">
+<html lang="en">
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -88,20 +88,20 @@
     <h1>PromptLab</h1>
     <div class="meta">
       <div>
-        <span class="label">Anonymous user_id</span>
-        <code id="user-id">Loading...</code>
+        <span class="label" data-i18n="anonymousUserId">Anonymous user_id</span>
+        <code id="user-id" data-i18n="loading">Loading...</code>
       </div>
       <div>
-        <span class="label">Server</span>
+        <span class="label" data-i18n="server">Server</span>
         <code>promptlab-server.onrender.com</code>
-        <span id="server-status" class="status">Checking...</span>
+        <span id="server-status" class="status" data-i18n="checking">Checking...</span>
       </div>
     </div>
     <ol>
-      <li>ChatGPT에서 프롬프트를 작성하세요.</li>
-      <li>PromptLab 버튼을 누르세요.</li>
-      <li>프롬프트를 개선하고 입력창에 넣으세요.</li>
-      <li>답변이 나온 뒤 만족도를 평가하세요.</li>
+      <li data-i18n="popupStep1">Write a prompt in ChatGPT.</li>
+      <li data-i18n="popupStep2">Click the PromptLab button.</li>
+      <li data-i18n="popupStep3">Improve the prompt and insert it into the input box.</li>
+      <li data-i18n="popupStep4">Rate the answer after ChatGPT responds.</li>
     </ol>
     <div class="links">
       <a href="https://promptlab-server.onrender.com/api/logs/export/json" target="_blank" rel="noreferrer">Export JSON</a>
