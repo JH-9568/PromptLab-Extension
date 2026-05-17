@@ -61,7 +61,8 @@ app.post('/api/improve', async (req, res, next) => {
       user_id: userId,
       session_id: sessionId,
       original_prompt: originalPrompt,
-      task_category: taskCategory = 'general'
+      task_category: taskCategory = 'general',
+      client_language: clientLanguage = ''
     } = req.body || {};
 
     const validationErrors = [
@@ -80,7 +81,8 @@ app.post('/api/improve', async (req, res, next) => {
     const generation = await generateImprovedPrompt({
       originalPrompt,
       taskCategory: normalizedCategory,
-      guidelines: guidelines.content
+      guidelines: guidelines.content,
+      clientLanguage
     });
     const afterAnalysis = analyzePrompt(generation.improved_prompt);
 

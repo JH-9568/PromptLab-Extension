@@ -10,6 +10,55 @@
     '.ProseMirror'
   ];
   const DEFAULT_TASK_CATEGORY = 'etc';
+  const CLIENT_LANGUAGE = navigator.languages?.[0] || navigator.language || 'en';
+  const IS_KOREAN_UI = /^ko\b/i.test(CLIENT_LANGUAGE);
+  const UI_TEXT = IS_KOREAN_UI ? {
+    inputNotFound: 'ChatGPT 입력창을 찾지 못했습니다.',
+    noImprovedPrompt: '삽입할 개선 프롬프트가 없습니다.',
+    emptyResult: 'Analyze a prompt to see the improved version and specificity scores.',
+    improvedPromptLabel: 'Improved Prompt',
+    ratingPrompt: '답변 만족도를 선택해 주세요.',
+    busy: '개선 중...',
+    improveButton: '프롬프트 개선하기',
+    improveAvailable: '프롬프트 개선 가능',
+    openPromptLab: 'PromptLab 열기',
+    noPrompt: '현재 ChatGPT 입력창에 프롬프트가 없습니다.',
+    improving: '프롬프트를 개선하고 있습니다...',
+    ready: '개선된 프롬프트가 준비되었습니다.',
+    serverError: '서버 요청 실패',
+    analyzeFirst: '먼저 프롬프트를 분석해 주세요.',
+    savingRating: (score) => `만족도 ${score}점을 저장 중입니다...`,
+    savedRating: (score) => `만족도 ${score}점이 저장되었습니다.`,
+    logError: '로그 저장 실패',
+    subtitle: '프롬프트 개선 도구',
+    currentPrompt: '현재 프롬프트',
+    insertImproved: '개선본 넣기',
+    keepOriginal: '원본 유지',
+    ratingTitle: '답변 만족도'
+  } : {
+    inputNotFound: 'Could not find the ChatGPT input box.',
+    noImprovedPrompt: 'No improved prompt is available to insert.',
+    emptyResult: 'Analyze a prompt to see the improved version and specificity scores.',
+    improvedPromptLabel: 'Improved Prompt',
+    ratingPrompt: 'Rate the answer quality.',
+    busy: 'Improving...',
+    improveButton: 'Improve prompt',
+    improveAvailable: 'Prompt improvement available',
+    openPromptLab: 'Open PromptLab',
+    noPrompt: 'There is no prompt in the ChatGPT input box.',
+    improving: 'Improving the prompt...',
+    ready: 'Improved prompt is ready.',
+    serverError: 'Server request failed',
+    analyzeFirst: 'Analyze a prompt first.',
+    savingRating: (score) => `Saving rating ${score}...`,
+    savedRating: (score) => `Rating ${score} saved.`,
+    logError: 'Failed to save log',
+    subtitle: 'Prompt improvement tool',
+    currentPrompt: 'Current prompt',
+    insertImproved: 'Insert improved',
+    keepOriginal: 'Keep original',
+    ratingTitle: 'Answer rating'
+  };
 
   let state = {
     isOpen: false,
@@ -127,12 +176,12 @@
     const nextValue = String(value || '').trim();
     const input = getEditableTarget(findPromptInput());
     if (!input) {
-      setStatus('ChatGPT 입력창을 찾지 못했습니다.', true);
+      setStatus(UI_TEXT.inputNotFound, true);
       return false;
     }
 
     if (!nextValue) {
-      setStatus('삽입할 개선 프롬프트가 없습니다.', true);
+      setStatus(UI_TEXT.noImprovedPrompt, true);
       return false;
     }
 
@@ -203,7 +252,7 @@
     if (!result || !actions) return;
 
     if (!state.response) {
-      result.innerHTML = '<div class="promptlab-empty">Analyze a prompt to see the improved version and specificity scores.</div>';
+      result.innerHTML = `<div class="promptlab-empty">${escapeHtml(UI_TEXT.emptyResult)}</div>`;
       actions.hidden = true;
       return;
     }
@@ -237,7 +286,7 @@
           ${analysisRows(after)}
         </div>
       </div>
-      <label class="promptlab-label" for="promptlab-improved">Improved Prompt</label>
+      <label class="promptlab-label" for="promptlab-improved">${escapeHtml(UI_TEXT.improvedPromptLabel)}</label>
       <textarea id="promptlab-improved" class="promptlab-improved" readonly>${escapeHtml(state.improvedPrompt)}</textarea>
     `;
 
@@ -265,7 +314,7 @@
     if (!ratingToast) return;
     ratingToast.hidden = false;
     setSelectedRating(null);
-    setRatingStatus('답변 만족도를 선택해 주세요.');
+    setRatingStatus(UI_TEXT.ratingPrompt);
   }
 
   function hideRatingPrompt() {
@@ -341,7 +390,7 @@
     const button = document.querySelector('#promptlab-analyze');
     if (!button) return;
     button.disabled = isBusy;
-    button.textContent = isBusy ? '개선 중...' : '프롬프트 개선하기';
+    button.textContent = isBusy ? UI_TEXT.busy : UI_TEXT.improveButton;
   }
 
   function updateFabPlacement() {
@@ -375,7 +424,7 @@
 
     const shouldCue = Boolean(prompt) && !state.isOpen && !state.response && !state.awaitingRating;
     button.classList.toggle('has-prompt', shouldCue);
-    button.setAttribute('aria-label', shouldCue ? '프롬프트 개선 가능' : 'PromptLab 열기');
+    button.setAttribute('aria-label', shouldCue ? UI_TEXT.improveAvailable : UI_TEXT.openPromptLab);
   }
 
   function startPromptWatch() {
@@ -407,7 +456,7 @@
     const category = DEFAULT_TASK_CATEGORY;
 
     if (!prompt) {
-      setStatus('현재 ChatGPT 입력창에 프롬프트가 없습니다.', true);
+      setStatus(UI_TEXT.noPrompt, true);
       return;
     }
 
@@ -428,7 +477,7 @@
     hideRatingPrompt();
 
     setBusy(true);
-    setStatus('프롬프트를 개선하고 있습니다...');
+    setStatus(UI_TEXT.improving);
     const fab = document.querySelector('#promptlab-fab');
     if (fab) fab.classList.remove('has-prompt');
     renderResult();
@@ -441,7 +490,8 @@
           user_id: state.userId,
           session_id: state.sessionId,
           original_prompt: prompt,
-          task_category: category
+          task_category: category,
+          client_language: CLIENT_LANGUAGE
         })
       });
 
@@ -452,10 +502,10 @@
       const data = await response.json();
       state.response = data;
       state.improvedPrompt = data.improved_prompt || '';
-      setStatus('개선된 프롬프트가 준비되었습니다.');
+      setStatus(UI_TEXT.ready);
       renderResult();
     } catch (error) {
-      setStatus(`서버 요청 실패: ${error.message}`, true);
+      setStatus(`${UI_TEXT.serverError}: ${error.message}`, true);
     } finally {
       setBusy(false);
     }
@@ -463,13 +513,13 @@
 
   async function sendLog(satisfactionScore) {
     if (!state.response || !state.sessionId) {
-      setRatingStatus('먼저 프롬프트를 분석해 주세요.', true);
+      setRatingStatus(UI_TEXT.analyzeFirst, true);
       return;
     }
 
     state.satisfactionScore = satisfactionScore;
     setSelectedRating(satisfactionScore);
-    setRatingStatus(`만족도 ${satisfactionScore}점을 저장 중입니다...`);
+    setRatingStatus(UI_TEXT.savingRating(satisfactionScore));
 
     try {
       const [originalHash, improvedHash] = await Promise.all([
@@ -505,7 +555,7 @@
         throw new Error(`Server returned ${response.status}`);
       }
 
-      setRatingStatus(`만족도 ${satisfactionScore}점이 저장되었습니다.`);
+      setRatingStatus(UI_TEXT.savedRating(satisfactionScore));
       setTimeout(() => {
         resetPromptSession();
         renderResult();
@@ -513,7 +563,7 @@
     } catch (error) {
       state.satisfactionScore = null;
       setSelectedRating(null);
-      setRatingStatus(`로그 저장 실패: ${error.message}`, true);
+      setRatingStatus(`${UI_TEXT.logError}: ${error.message}`, true);
     }
   }
 
@@ -560,35 +610,35 @@
     const root = document.createElement('div');
     root.id = 'promptlab-root';
     root.innerHTML = `
-      <button id="promptlab-fab" type="button" aria-label="PromptLab 열기">
+      <button id="promptlab-fab" type="button" aria-label="${escapeHtml(UI_TEXT.openPromptLab)}">
         <img src="${chrome.runtime.getURL('icons/icon48.png')}" alt="">
       </button>
       <section id="promptlab-panel" hidden>
         <header class="promptlab-header">
           <div>
             <strong>PromptLab</strong>
-            <span>프롬프트 개선 도구</span>
+            <span>${escapeHtml(UI_TEXT.subtitle)}</span>
           </div>
           <button id="promptlab-close" type="button" aria-label="Close">x</button>
         </header>
         <div class="promptlab-body">
-          <label class="promptlab-label" for="promptlab-current">현재 프롬프트</label>
+          <label class="promptlab-label" for="promptlab-current">${escapeHtml(UI_TEXT.currentPrompt)}</label>
           <textarea id="promptlab-current" readonly></textarea>
-          <button id="promptlab-analyze" class="promptlab-primary" type="button">프롬프트 개선하기</button>
+          <button id="promptlab-analyze" class="promptlab-primary" type="button">${escapeHtml(UI_TEXT.improveButton)}</button>
           <div id="promptlab-status" class="promptlab-status" aria-live="polite"></div>
           <div id="promptlab-result"></div>
           <div id="promptlab-actions" hidden>
             <div class="promptlab-action-row">
-              <button id="promptlab-insert" class="promptlab-primary" type="button">개선본 넣기</button>
-              <button id="promptlab-original" type="button">원본 유지</button>
+              <button id="promptlab-insert" class="promptlab-primary" type="button">${escapeHtml(UI_TEXT.insertImproved)}</button>
+              <button id="promptlab-original" type="button">${escapeHtml(UI_TEXT.keepOriginal)}</button>
             </div>
           </div>
         </div>
       </section>
       <section id="promptlab-rating-toast" hidden aria-live="polite">
         <div>
-          <strong>답변 만족도</strong>
-          <span id="promptlab-rating-status">답변 만족도를 선택해 주세요.</span>
+          <strong>${escapeHtml(UI_TEXT.ratingTitle)}</strong>
+          <span id="promptlab-rating-status">${escapeHtml(UI_TEXT.ratingPrompt)}</span>
         </div>
         <div class="promptlab-rating-buttons">
           ${[1, 2, 3, 4, 5].map((score) => `<button type="button" data-score="${score}" aria-pressed="false">${score}</button>`).join('')}

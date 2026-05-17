@@ -9,6 +9,35 @@ function sanitizeImprovedPrompt(value) {
     .trim();
 }
 
+function normalizeClientLanguage(value) {
+  return String(value || '').split(',')[0].trim() || 'auto';
+}
+
+function getTargetLanguageLabel(clientLanguage) {
+  const normalized = normalizeClientLanguage(clientLanguage);
+  if (normalized === 'auto') return 'the same language as the original prompt';
+
+  const languageCode = normalized.split('-')[0];
+  try {
+    const displayNames = new Intl.DisplayNames(['en'], { type: 'language' });
+    return displayNames.of(languageCode) || normalized;
+  } catch {
+    return normalized;
+  }
+}
+
+function hasKoreanText(value) {
+  return /[가-힣]/.test(String(value || ''));
+}
+
+function isKoreanLanguage(value) {
+  return /^ko\b/i.test(normalizeClientLanguage(value));
+}
+
+function shouldUseKoreanRules(prompt, clientLanguage) {
+  return isKoreanLanguage(clientLanguage) || hasKoreanText(prompt);
+}
+
 function isLowInformationPrompt(value) {
   const prompt = String(value || '').trim();
   const compactPrompt = prompt
@@ -20,6 +49,13 @@ function isLowInformationPrompt(value) {
   return /^(ㅎㅇ)+$/.test(compactPrompt)
     || /^(hi|hello|hey|yo|sup)$/.test(compactPrompt)
     || /^(안녕|안녕하세요|하이|헬로|반가워|반갑습니다)$/.test(compactPrompt);
+}
+
+function buildEnglishClarificationPrompt() {
+  return [
+    'Help me turn my rough request into a clearer prompt.',
+    'Ask briefly for the topic, goal, desired output format, and any important constraints, then rewrite my answers into a ready-to-use final prompt.'
+  ].join(' ');
 }
 
 function buildClarificationPrompt() {
@@ -43,6 +79,10 @@ function buildTextRevisionPrompt() {
   return '입력한 문장의 의미는 유지하면서 더 자연스럽고 매끄러운 표현으로 고쳐주세요. 어색한 부분이 있다면 수정 이유를 간단히 설명해주세요.';
 }
 
+function buildEnglishTextRevisionPrompt() {
+  return 'Rewrite the input text so it sounds natural and polished while keeping the original meaning. Briefly explain any important changes.';
+}
+
 function buildWritingPlanPrompt({ originalPrompt }) {
   const prompt = String(originalPrompt || '').trim();
   const subject = prompt
@@ -61,10 +101,63 @@ function buildWritingPlanPrompt({ originalPrompt }) {
   ].join(' ');
 }
 
-function buildFallbackPrompt({ originalPrompt, taskCategory, guidelines }) {
+function buildEnglishFallbackPrompt({ originalPrompt, taskCategory }) {
   const categoryLabel = taskCategory || 'general';
   const prompt = String(originalPrompt || '').trim();
   const lowerPrompt = prompt.toLowerCase();
+  const subject = prompt
+    .replace(/\b(please|can you|could you|help me|write|create|make|do|fix|improve)\b/gi, ' ')
+    .replace(/\s+/g, ' ')
+    .trim() || prompt;
+
+  if (isLowInformationPrompt(prompt)) {
+    return buildEnglishClarificationPrompt();
+  }
+
+  if (isTextRevisionRequest(prompt)) {
+    return buildEnglishTextRevisionPrompt();
+  }
+
+  if (/report|essay|assignment|paper|writing/i.test(prompt) && /today|urgent|how|start|where|what/i.test(prompt)) {
+    return [
+      'I need to work on a report today.',
+      'Suggest a concise step-by-step writing plan from organizing materials to outlining, drafting, and reviewing.',
+      'Include a simple outline template I can use right away.'
+    ].join(' ');
+  }
+
+  const isTestRequest = /test|qa|verify|check|validate/i.test(lowerPrompt);
+  const isPlanRequest = /plan|checklist|steps/i.test(lowerPrompt);
+
+  if (isTestRequest) {
+    return `${subject} needs to be tested. Create a concise QA checklist with expected behavior, key test cases, edge cases, and how to record results.`;
+  }
+
+  if (isPlanRequest) {
+    return `Create a concise action plan for ${subject}. Include the goal, key steps, risks, and completion criteria.`;
+  }
+
+  const categoryTemplates = {
+    study: `Help me learn ${subject}. Explain the key concepts with simple examples and step-by-step guidance.`,
+    coding: `Help me solve ${subject}. Summarize possible causes, the fix, and how to verify it.`,
+    writing: `Help me write about ${subject}. Create a clear draft with a natural structure and focused message.`,
+    summary: `Summarize ${subject}. Keep only the key points and important facts, and do not invent details.`,
+    analysis: `Analyze ${subject}. Cover the key evidence, pros and cons, risks, and final recommendation.`,
+    etc: `Help me with ${subject}. Make the goal and task clear, then provide a useful result I can act on.`,
+    general: `Help me with ${subject}. Make the goal and task clear, then provide a useful result I can act on.`
+  };
+
+  return categoryTemplates[categoryLabel] || categoryTemplates.general;
+}
+
+function buildFallbackPrompt({ originalPrompt, taskCategory, guidelines, clientLanguage }) {
+  const categoryLabel = taskCategory || 'general';
+  const prompt = String(originalPrompt || '').trim();
+  const lowerPrompt = prompt.toLowerCase();
+
+  if (!shouldUseKoreanRules(prompt, clientLanguage)) {
+    return buildEnglishFallbackPrompt({ originalPrompt, taskCategory, guidelines });
+  }
 
   if (isLowInformationPrompt(prompt)) {
     return buildClarificationPrompt();
@@ -134,22 +227,25 @@ function buildFallbackPrompt({ originalPrompt, taskCategory, guidelines }) {
   return categoryTemplates[categoryLabel] || categoryTemplates.general;
 }
 
-async function generateImprovedPrompt({ originalPrompt, taskCategory, guidelines }) {
-  if (isLowInformationPrompt(originalPrompt)) {
+async function generateImprovedPrompt({ originalPrompt, taskCategory, guidelines, clientLanguage }) {
+  const normalizedClientLanguage = normalizeClientLanguage(clientLanguage);
+  const useKoreanRules = shouldUseKoreanRules(originalPrompt, normalizedClientLanguage);
+
+  if (useKoreanRules && isLowInformationPrompt(originalPrompt)) {
     return {
       improved_prompt: buildClarificationPrompt(),
       provider: 'rule_based'
     };
   }
 
-  if (isWritingPlanRequest(String(originalPrompt || '').trim())) {
+  if (useKoreanRules && isWritingPlanRequest(String(originalPrompt || '').trim())) {
     return {
       improved_prompt: buildWritingPlanPrompt({ originalPrompt }),
       provider: 'rule_based'
     };
   }
 
-  if (isTextRevisionRequest(String(originalPrompt || '').trim())) {
+  if (useKoreanRules && isTextRevisionRequest(String(originalPrompt || '').trim())) {
     return {
       improved_prompt: buildTextRevisionPrompt(),
       provider: 'rule_based'
@@ -158,7 +254,7 @@ async function generateImprovedPrompt({ originalPrompt, taskCategory, guidelines
 
   if (!process.env.OPENAI_API_KEY) {
     return {
-      improved_prompt: buildFallbackPrompt({ originalPrompt, taskCategory, guidelines }),
+      improved_prompt: buildFallbackPrompt({ originalPrompt, taskCategory, guidelines, clientLanguage: normalizedClientLanguage }),
       provider: 'fallback'
     };
   }
@@ -172,19 +268,21 @@ async function generateImprovedPrompt({ originalPrompt, taskCategory, guidelines
         {
           role: 'system',
           content: [
-            '너는 프롬프트 개선 도우미다.',
-            '원본 요청에 답하지 말고, 원본 요청을 더 명확하고 구체적인 프롬프트로 다시 작성하라.',
-            'retrieved guidelines는 답변 생성 기준이 아니라 프롬프트 rewrite 기준으로만 사용하라.',
-            'task category는 참고 정보일 뿐이며, 원본 요청의 실제 의도를 가장 우선하라.',
-            '원본 요청이 짧거나 구어체이면 그대로 감싸지 말고 의도를 추론해 자연스러운 실행 프롬프트로 확장하라.',
-            '원본 요청이 짧고 단순한 경우에는 1~3문장 수준으로만 개선하라.',
-            '모든 요청에 goal, context, format, constraint, reference를 억지로 포함하지 말고 실제로 도움이 되는 요소만 추가하라.',
-            '개선된 프롬프트는 원본보다 명확해야 하지만 원본의 작업 규모를 과도하게 키우지 마라.',
-            '원본에 부족한 정보가 있어도 중괄호 placeholder를 만들지 말고, 현재 정보만으로 자연스럽게 실행 가능한 프롬프트로 작성하라.',
-            '원본 요청이 인사말뿐이거나 작업 목표가 없으면 답변하지 말고, 필요한 정보를 확인한 뒤 최종 프롬프트를 작성하도록 요청하는 프롬프트로 다시 작성하라.',
-            '원본 요청에 보고서, 과제, 글쓰기와 함께 "어케", "어떻게", "뭐부터", "오늘", "급" 같은 표현이 있으면 정보 요청만 하지 말고, 제한된 시간 안에 작성하도록 돕는 단계별 작성 계획 프롬프트로 확장하라.',
-            '출력은 개선된 프롬프트만 하라.',
-            '설명, 제목, 마크다운, 섹션 구분, markdown code fence를 출력하지 마라.'
+            'You are a prompt improvement assistant.',
+            'Do not answer the original request. Rewrite it into a clearer, more specific prompt.',
+            `Target output language: ${getTargetLanguageLabel(normalizedClientLanguage)}.`,
+            'Write the improved prompt in the target output language unless the original prompt explicitly asks for another language.',
+            'Use the retrieved guidelines only as rewrite guidance, not as answer-generation guidance.',
+            'The task category is only a hint. Prioritize the actual intent of the original prompt.',
+            'If the original request is short or informal, infer the likely intent and make it naturally actionable.',
+            'If the original request is short and simple, keep the improved prompt to 1-3 sentences.',
+            'Do not force goal, context, format, constraint, and reference into every prompt. Add only what is genuinely useful.',
+            'The improved prompt should be clearer than the original, but it must not unnecessarily expand the task scope.',
+            'If information is missing, do not use curly-brace placeholders. Write a natural prompt using the available information.',
+            'If the original request is only a greeting or has no task goal, rewrite it as a prompt that asks for the missing information and then asks for a final usable prompt.',
+            'For report, assignment, or writing requests that ask how to start or mention urgency, rewrite them as concise step-by-step planning prompts.',
+            'Output only the improved prompt.',
+            'Do not output explanations, titles, Markdown headings, section labels, or code fences.'
           ].join(' ')
         },
         {
@@ -205,13 +303,13 @@ async function generateImprovedPrompt({ originalPrompt, taskCategory, guidelines
     });
 
     return {
-      improved_prompt: sanitizeImprovedPrompt(response.choices?.[0]?.message?.content) || buildFallbackPrompt({ originalPrompt, taskCategory, guidelines }),
+      improved_prompt: sanitizeImprovedPrompt(response.choices?.[0]?.message?.content) || buildFallbackPrompt({ originalPrompt, taskCategory, guidelines, clientLanguage: normalizedClientLanguage }),
       provider: 'openai'
     };
   } catch (error) {
     console.warn(`OpenAI prompt improvement failed, using fallback: ${error.message}`);
     return {
-      improved_prompt: buildFallbackPrompt({ originalPrompt, taskCategory, guidelines }),
+      improved_prompt: buildFallbackPrompt({ originalPrompt, taskCategory, guidelines, clientLanguage: normalizedClientLanguage }),
       provider: 'fallback',
       fallback_reason: error.code || error.status || 'openai_error'
     };
