@@ -77,14 +77,14 @@ app.post('/api/improve', async (req, res, next) => {
 
     const normalizedCategory = String(taskCategory || 'general').toLowerCase();
     const guidelines = await loadGuidelines(normalizedCategory);
-    const beforeAnalysis = analyzePrompt(originalPrompt);
     const generation = await generateImprovedPrompt({
       originalPrompt,
       taskCategory: normalizedCategory,
       guidelines: guidelines.content,
       clientLanguage
     });
-    const afterAnalysis = analyzePrompt(generation.improved_prompt);
+    const beforeAnalysis = generation.before_analysis || analyzePrompt(originalPrompt);
+    const afterAnalysis = generation.after_analysis || analyzePrompt(generation.improved_prompt);
 
     return res.json({
       user_id: userId,

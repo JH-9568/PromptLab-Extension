@@ -1,5 +1,7 @@
 const OpenAI = require('openai');
 
+const { analyzePrompt } = require('./promptAnalyzer');
+
 function sanitizeImprovedPrompt(value) {
   return String(value || '')
     .replace(/```[a-zA-Z]*\n?/g, '')
@@ -7,6 +9,63 @@ function sanitizeImprovedPrompt(value) {
     .replace(/^\s*#+\s+/gm, '')
     .replace(/^\s*(개선된\s*프롬프트|improved\s*prompt)\s*:\s*/i, '')
     .trim();
+}
+
+const ANALYSIS_KEYS = [
+  'has_goal',
+  'has_context',
+  'has_format',
+  'has_constraint',
+  'has_reference'
+];
+
+function normalizePromptAnalysis(value) {
+  const source = value && typeof value === 'object' ? value : {};
+  const analysis = {};
+
+  for (const key of ANALYSIS_KEYS) {
+    analysis[key] = Boolean(source[key]);
+  }
+
+  analysis.specificity_score = ANALYSIS_KEYS
+    .filter((key) => analysis[key])
+    .length * 20;
+
+  return analysis;
+}
+
+function parseGenerationPayload(content) {
+  const rawContent = String(content || '').trim();
+  if (!rawContent) return null;
+
+  const jsonText = rawContent
+    .replace(/^```json\s*/i, '')
+    .replace(/^```\s*/i, '')
+    .replace(/```$/i, '')
+    .trim();
+
+  const parsed = JSON.parse(jsonText);
+  if (!parsed || typeof parsed !== 'object') return null;
+
+  const improvedPrompt = sanitizeImprovedPrompt(parsed.improved_prompt);
+  if (!improvedPrompt) return null;
+
+  return {
+    improved_prompt: improvedPrompt,
+    before_analysis: normalizePromptAnalysis(parsed.before_analysis),
+    after_analysis: normalizePromptAnalysis(parsed.after_analysis),
+    provider: 'openai'
+  };
+}
+
+function buildGeneratedResult({ improvedPrompt, originalPrompt, provider, fallbackReason }) {
+  return {
+    improved_prompt: improvedPrompt,
+    before_analysis: analyzePrompt(originalPrompt),
+    after_analysis: analyzePrompt(improvedPrompt),
+    provider,
+    ...(fallbackReason ? { fallback_reason: fallbackReason } : {})
+  };
 }
 
 function normalizeClientLanguage(value) {
@@ -232,31 +291,35 @@ async function generateImprovedPrompt({ originalPrompt, taskCategory, guidelines
   const useKoreanRules = shouldUseKoreanRules(originalPrompt, normalizedClientLanguage);
 
   if (useKoreanRules && isLowInformationPrompt(originalPrompt)) {
-    return {
-      improved_prompt: buildClarificationPrompt(),
+    return buildGeneratedResult({
+      improvedPrompt: buildClarificationPrompt(),
+      originalPrompt,
       provider: 'rule_based'
-    };
+    });
   }
 
   if (useKoreanRules && isWritingPlanRequest(String(originalPrompt || '').trim())) {
-    return {
-      improved_prompt: buildWritingPlanPrompt({ originalPrompt }),
+    return buildGeneratedResult({
+      improvedPrompt: buildWritingPlanPrompt({ originalPrompt }),
+      originalPrompt,
       provider: 'rule_based'
-    };
+    });
   }
 
   if (useKoreanRules && isTextRevisionRequest(String(originalPrompt || '').trim())) {
-    return {
-      improved_prompt: buildTextRevisionPrompt(),
+    return buildGeneratedResult({
+      improvedPrompt: buildTextRevisionPrompt(),
+      originalPrompt,
       provider: 'rule_based'
-    };
+    });
   }
 
   if (!process.env.OPENAI_API_KEY) {
-    return {
-      improved_prompt: buildFallbackPrompt({ originalPrompt, taskCategory, guidelines, clientLanguage: normalizedClientLanguage }),
+    return buildGeneratedResult({
+      improvedPrompt: buildFallbackPrompt({ originalPrompt, taskCategory, guidelines, clientLanguage: normalizedClientLanguage }),
+      originalPrompt,
       provider: 'fallback'
-    };
+    });
   }
 
   try {
@@ -264,12 +327,13 @@ async function generateImprovedPrompt({ originalPrompt, taskCategory, guidelines
     const response = await client.chat.completions.create({
       model: process.env.OPENAI_MODEL || 'gpt-4o-mini',
       temperature: 0.3,
+      response_format: { type: 'json_object' },
       messages: [
         {
           role: 'system',
           content: [
             'You are a prompt improvement assistant.',
-            'Do not answer the original request. Rewrite it into a clearer, more specific prompt.',
+            'Do not answer the original request. Rewrite it into a clearer, more specific prompt and evaluate prompt structure.',
             `Target output language: ${getTargetLanguageLabel(normalizedClientLanguage)}.`,
             'Write the improved prompt in the target output language unless the original prompt explicitly asks for another language.',
             'Use the retrieved guidelines only as rewrite guidance, not as answer-generation guidance.',
@@ -281,8 +345,15 @@ async function generateImprovedPrompt({ originalPrompt, taskCategory, guidelines
             'If information is missing, do not use curly-brace placeholders. Write a natural prompt using the available information.',
             'If the original request is only a greeting or has no task goal, rewrite it as a prompt that asks for the missing information and then asks for a final usable prompt.',
             'For report, assignment, or writing requests that ask how to start or mention urgency, rewrite them as concise step-by-step planning prompts.',
-            'Output only the improved prompt.',
-            'Do not output explanations, titles, Markdown headings, section labels, or code fences.'
+            'Evaluate both the original prompt and improved prompt using these five boolean fields:',
+            'has_goal: the prompt states a task, intent, desired result, or request.',
+            'has_context: the prompt provides background, situation, audience, domain, source context, or user-specific information.',
+            'has_format: the prompt specifies output shape such as bullets, table, list, steps, JSON, Markdown, code, or section structure.',
+            'has_constraint: the prompt includes requirements, exclusions, quality criteria, tone, length, language, deadline, feasibility, originality, or validation conditions.',
+            'has_reference: the prompt includes examples, source text, links, attached material, evidence, prior content, rubric, or criteria to follow.',
+            'Return only valid JSON with this exact shape:',
+            '{"improved_prompt":"...","before_analysis":{"has_goal":true,"has_context":false,"has_format":false,"has_constraint":false,"has_reference":false},"after_analysis":{"has_goal":true,"has_context":false,"has_format":true,"has_constraint":true,"has_reference":false}}',
+            'Do not include explanations, titles, Markdown headings, section labels, or code fences.'
           ].join(' ')
         },
         {
@@ -302,17 +373,23 @@ async function generateImprovedPrompt({ originalPrompt, taskCategory, guidelines
       ]
     });
 
-    return {
-      improved_prompt: sanitizeImprovedPrompt(response.choices?.[0]?.message?.content) || buildFallbackPrompt({ originalPrompt, taskCategory, guidelines, clientLanguage: normalizedClientLanguage }),
-      provider: 'openai'
-    };
+    const parsedPayload = parseGenerationPayload(response.choices?.[0]?.message?.content);
+    if (parsedPayload) return parsedPayload;
+
+    return buildGeneratedResult({
+      improvedPrompt: buildFallbackPrompt({ originalPrompt, taskCategory, guidelines, clientLanguage: normalizedClientLanguage }),
+      originalPrompt,
+      provider: 'fallback',
+      fallbackReason: 'invalid_openai_json'
+    });
   } catch (error) {
     console.warn(`OpenAI prompt improvement failed, using fallback: ${error.message}`);
-    return {
-      improved_prompt: buildFallbackPrompt({ originalPrompt, taskCategory, guidelines, clientLanguage: normalizedClientLanguage }),
+    return buildGeneratedResult({
+      improvedPrompt: buildFallbackPrompt({ originalPrompt, taskCategory, guidelines, clientLanguage: normalizedClientLanguage }),
+      originalPrompt,
       provider: 'fallback',
-      fallback_reason: error.code || error.status || 'openai_error'
-    };
+      fallbackReason: error.code || error.status || 'openai_error'
+    });
   }
 }
 
