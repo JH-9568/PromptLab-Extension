@@ -3,14 +3,10 @@
 PromptLab은 ChatGPT에서 작성한 프롬프트를 더 명확하고 구체적인 프롬프트로 개선해 주는 Chrome 확장 프로그램입니다. 사용자는 ChatGPT 입력창에 작성한 프롬프트를 PromptLab으로 분석하고, 개선된 프롬프트와 개선 전후의 품질 신호를 확인한 뒤 원하는 버전을 입력창에 적용할 수 있습니다.
 
 ## 주요 기능
-
-- ChatGPT 입력창의 프롬프트를 감지하고 개선 요청을 보냅니다.
-- OpenAI Prompting 및 Prompt Engineering 가이드 등 공개 프롬프트 작성 가이드라인을 기준으로 프롬프트를 개선합니다.
-- 목표, 맥락, 출력 형식, 제약 조건, 참고 자료 포함 여부를 기준으로 프롬프트를 분석합니다.
-- 개선 전후의 프롬프트 구체성 점수를 비교해 보여줍니다.
-- 개선된 프롬프트를 ChatGPT 입력창에 바로 삽입할 수 있습니다.
-- ChatGPT 답변 이후 사용자가 만족도 점수를 남길 수 있습니다.
-- 익명 세션 메타데이터를 기반으로 프롬프트 개선 품질을 분석합니다.
+<img width="1280" height="800" alt="promptlab-04-rating" src="https://github.com/user-attachments/assets/bfa25449-445a-4624-8275-6bcbbe696adf" />
+<img width="1280" height="800" alt="promptlab-03-insert" src="https://github.com/user-attachments/assets/76e8937a-80bd-4a4c-bf9e-361f0afa68f8" />
+<img width="1280" height="800" alt="promptlab-02-improve" src="https://github.com/user-attachments/assets/f455eb94-9d78-4086-8a37-8e7f5d88f71c" />
+<img width="1280" height="800" alt="promptlab-01-open" src="https://github.com/user-attachments/assets/4e045d5a-fadc-4f7f-8e79-327198a5bb4b" />
 
 ## 사용 방법
 
