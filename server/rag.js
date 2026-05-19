@@ -11,6 +11,24 @@ function sanitizeImprovedPrompt(value) {
     .trim();
 }
 
+function normalizeInstructionVoice(value) {
+  return String(value || '')
+    .replace(
+      /[가-힣A-Za-z0-9\s/·,()]+?(?:을|를)?\s*(?:구체적으로\s*)?알려주시면\s*그에\s*맞는\s*([가-힣A-Za-z0-9\s/·,()]+?)(?:을|를)?\s*(목록\s*형태로\s*)?제공해\s*드립니다\.?/g,
+      ' 필요한 정보가 불명확하면 먼저 확인 질문을 하고, 그에 맞는 $1를 $2제안해주세요.'
+    )
+    .replace(
+      /[가-힣A-Za-z0-9\s/·,()]+?(?:을|를)?\s*(?:구체적으로\s*)?알려주시면\s*([가-힣A-Za-z0-9\s/·,()]+?)(?:을|를)?\s*제공해\s*드립니다\.?/g,
+      ' 필요한 정보가 불명확하면 먼저 확인 질문을 하고, $1를 제안해주세요.'
+    )
+    .replace(/제공해\s*드리겠습니다/g, '제공해주세요')
+    .replace(/제공해\s*드립니다/g, '제공해주세요')
+    .replace(/작성해\s*드리겠습니다/g, '작성해주세요')
+    .replace(/정리해\s*드리겠습니다/g, '정리해주세요')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
 const ANALYSIS_KEYS = [
   'has_goal',
   'has_context',
@@ -47,7 +65,7 @@ function parseGenerationPayload(content) {
   const parsed = JSON.parse(jsonText);
   if (!parsed || typeof parsed !== 'object') return null;
 
-  const improvedPrompt = sanitizeImprovedPrompt(parsed.improved_prompt);
+  const improvedPrompt = normalizeInstructionVoice(sanitizeImprovedPrompt(parsed.improved_prompt));
   if (!improvedPrompt) return null;
 
   return {
@@ -59,10 +77,11 @@ function parseGenerationPayload(content) {
 }
 
 function buildGeneratedResult({ improvedPrompt, originalPrompt, provider, fallbackReason }) {
+  const normalizedImprovedPrompt = normalizeInstructionVoice(improvedPrompt);
   return {
-    improved_prompt: improvedPrompt,
+    improved_prompt: normalizedImprovedPrompt,
     before_analysis: analyzePrompt(originalPrompt),
-    after_analysis: analyzePrompt(improvedPrompt),
+    after_analysis: analyzePrompt(normalizedImprovedPrompt),
     provider,
     ...(fallbackReason ? { fallback_reason: fallbackReason } : {})
   };
