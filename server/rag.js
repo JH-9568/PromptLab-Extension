@@ -149,8 +149,15 @@ function buildClarificationPrompt() {
 }
 
 function isWritingPlanRequest(prompt) {
-  return /보고서|리포트|레포트|과제|글|essay|report/i.test(prompt)
-    && /오늘|지금|급|어케|어떻게|뭐부터|시작|작성|써야|써야함|써야 함|쓸건데|쓸 건데|해야|해야함|해야 함/i.test(prompt);
+  const text = String(prompt || '');
+  if (isSpecificAnalysisRequest(text)) return false;
+
+  return /보고서|리포트|레포트|과제|글|essay|report/i.test(text)
+    && /오늘|지금|급|어케|어떻게|뭐부터|시작|써야|써야함|써야 함|쓸건데|쓸 건데|해야|해야함|해야 함/i.test(text);
+}
+
+function isSpecificAnalysisRequest(prompt) {
+  return /csv|첨부|데이터|h1|h2|h3|가설|검증|분석|표|그래프|인과관계|관찰\s*연구|한계|문단\s*형태/i.test(String(prompt || ''));
 }
 
 function isTextRevisionRequest(prompt) {
@@ -254,9 +261,14 @@ function buildFallbackPrompt({ originalPrompt, taskCategory, guidelines, clientL
     return buildTextRevisionPrompt();
   }
 
+  if (isSpecificAnalysisRequest(prompt)) {
+    return prompt;
+  }
+
   const isTestRequest = /테스트|test|qa|검증|확인|실행/.test(lowerPrompt);
   const isPlanRequest = /계획|plan|체크리스트|checklist/.test(lowerPrompt);
-  const isTopicSelectionRequest = /주제|topic|아이디어|프로젝트/.test(lowerPrompt)
+  const isTopicSelectionRequest = !isSpecificAnalysisRequest(prompt)
+    && /주제|topic|아이디어|프로젝트/.test(lowerPrompt)
     && /정하|선정|추천|고르|찾|어케|어떻게|뭘|뭐/.test(lowerPrompt);
   const subject = prompt
     .replace(/할거다|할 거다|하려고\s*합니다|하려고|해줘|해주세요|작성|만들어줘|테스트|실행테스트/g, ' ')
