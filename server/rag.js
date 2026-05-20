@@ -81,6 +81,50 @@ function parseGenerationPayload(content) {
   };
 }
 
+async function analyzePromptPairWithOpenAI({ client, model, originalPrompt, improvedPrompt }) {
+  const response = await client.chat.completions.create({
+    model,
+    temperature: 0,
+    response_format: { type: 'json_object' },
+    messages: [
+      {
+        role: 'system',
+        content: [
+          'You are a prompt structure evaluator.',
+          'Your only job is to evaluate whether each prompt contains five structural fields.',
+          'Evaluate semantic meaning, not exact keywords. Be consistent and do not under-score prompts that clearly imply a field.',
+          'Return only valid JSON. Do not rewrite, answer, explain, or add markdown.',
+          'Scoring fields:',
+          'has_goal: true when the prompt states a task, intent, desired result, decision, recommendation request, or problem to solve.',
+          'has_context: true when the prompt provides background, situation, audience, domain, source context, business goal, user role, project state, or why the task matters.',
+          'has_format: true when the prompt specifies output shape such as bullets, table, list, ranking, comparison, steps, JSON, Markdown, code, report paragraph, or section structure.',
+          'has_constraint: true when the prompt includes requirements, exclusions, quality criteria, tone, length, language, deadline, feasibility, originality, monetization, differentiation, validation conditions, or decision criteria.',
+          'has_reference: true when the prompt includes or asks the assistant to use examples, existing services/products, search results, source text, links, attached material, evidence, prior content, benchmark cases, rubric, or criteria to follow.',
+          'Korean examples: "웹 서비스로 돈을 벌 계획" implies has_context=true. "돈을 많이 벌 수 있는", "수익성이 높은", "현실적인", or "차별점" imply has_constraint=true. "검색해서 이미 있거나 잘 되는 서비스 예시" implies has_reference=true.',
+          'Return this exact JSON shape:',
+          '{"before_analysis":{"has_goal":true,"has_context":false,"has_format":false,"has_constraint":false,"has_reference":false},"after_analysis":{"has_goal":true,"has_context":false,"has_format":true,"has_constraint":true,"has_reference":false}}'
+        ].join(' ')
+      },
+      {
+        role: 'user',
+        content: [
+          'Original prompt:',
+          originalPrompt,
+          '',
+          'Improved prompt:',
+          improvedPrompt
+        ].join('\n')
+      }
+    ]
+  });
+
+  const parsed = JSON.parse(String(response.choices?.[0]?.message?.content || '{}'));
+  return {
+    before_analysis: normalizePromptAnalysis(parsed.before_analysis),
+    after_analysis: normalizePromptAnalysis(parsed.after_analysis)
+  };
+}
+
 function buildGeneratedResult({ improvedPrompt, originalPrompt, provider, fallbackReason }) {
   const normalizedImprovedPrompt = normalizeInstructionVoice(improvedPrompt);
   return {
@@ -360,8 +404,9 @@ async function generateImprovedPrompt({ originalPrompt, taskCategory, guidelines
 
   try {
     const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+    const model = process.env.OPENAI_MODEL || 'gpt-4o-mini';
     const response = await client.chat.completions.create({
-      model: process.env.OPENAI_MODEL || 'gpt-4o-mini',
+      model,
       temperature: 0.3,
       response_format: { type: 'json_object' },
       messages: [
@@ -419,7 +464,25 @@ async function generateImprovedPrompt({ originalPrompt, taskCategory, guidelines
     });
 
     const parsedPayload = parseGenerationPayload(response.choices?.[0]?.message?.content);
-    if (parsedPayload) return parsedPayload;
+    if (parsedPayload) {
+      try {
+        const pairAnalysis = await analyzePromptPairWithOpenAI({
+          client,
+          model,
+          originalPrompt,
+          improvedPrompt: parsedPayload.improved_prompt
+        });
+
+        return {
+          ...parsedPayload,
+          before_analysis: pairAnalysis.before_analysis,
+          after_analysis: pairAnalysis.after_analysis
+        };
+      } catch (analysisError) {
+        console.warn(`OpenAI prompt analysis failed, using generation analysis: ${analysisError.message}`);
+        return parsedPayload;
+      }
+    }
 
     return buildGeneratedResult({
       improvedPrompt: buildFallbackPrompt({ originalPrompt, taskCategory, guidelines, clientLanguage: normalizedClientLanguage }),
