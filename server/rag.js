@@ -395,6 +395,7 @@ async function generateImprovedPrompt({ originalPrompt, taskCategory, guidelines
             'Treat success criteria, quality standards, verification rules, safety limits, stop rules, feasibility, creativity, originality, specificity, and "do not" rules as constraints.',
             'has_reference: true when the prompt includes or asks the assistant to use examples, existing services/products, search results, source text, links, attached material, evidence, prior content, benchmark cases, rubric, or criteria to follow.',
             'For example, "search for existing successful services and include examples/differentiation" means has_reference=true and has_constraint=true.',
+            'Korean scoring examples: "웹 서비스로 돈을 벌 계획" means has_context=true; "돈을 많이 벌 수 있는", "수익성이 높은", "현실적인", "차별점" mean has_constraint=true; "검색해서 이미 있거나 잘 되는 서비스 예시" means has_reference=true.',
             'Return only valid JSON with this exact shape:',
             '{"improved_prompt":"...","before_analysis":{"has_goal":true,"has_context":false,"has_format":false,"has_constraint":false,"has_reference":false},"after_analysis":{"has_goal":true,"has_context":false,"has_format":true,"has_constraint":true,"has_reference":false}}',
             'Do not include explanations, titles, Markdown headings, section labels, or code fences.'
