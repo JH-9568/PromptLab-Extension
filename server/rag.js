@@ -85,12 +85,16 @@ function isReasoningModel(model) {
   return /^(gpt-5|o[134])\b/i.test(String(model || ''));
 }
 
-async function createJsonChatCompletion({ client, model, temperature, messages }) {
+async function createJsonChatCompletion({ client, model, temperature, messages, maxCompletionTokens }) {
   const request = {
     model,
     response_format: { type: 'json_object' },
     messages
   };
+
+  if (maxCompletionTokens) {
+    request.max_completion_tokens = maxCompletionTokens;
+  }
 
   if (isReasoningModel(model)) {
     request.reasoning_effort = process.env.OPENAI_REASONING_EFFORT || 'low';
@@ -241,10 +245,6 @@ function isTextRevisionRequest(prompt) {
     && /자연스럽|고쳐|수정|다듬|교정|rewrite|revise|polish/i.test(prompt);
 }
 
-function isPaymentQuestion(prompt) {
-  return /결제|결재|카드|PG|페이먼트|payment|checkout|stripe|토스페이먼츠|포트원|아임포트|수익|돈|입금|정산|계좌/i.test(String(prompt || ''));
-}
-
 function isShortPrompt(prompt) {
   return countWords(prompt) <= 20;
 }
@@ -267,8 +267,82 @@ function isOverExpandedRewrite(originalPrompt, improvedPrompt) {
   const improved = String(improvedPrompt || '');
   const sentenceCount = splitSentences(improved).length;
   const improvedWords = countWords(improved);
+  const compactLengthLimit = originalWords <= 8 ? 140 : 220;
 
-  return sentenceCount > 3 || improvedWords > Math.max(55, originalWords * 5);
+  return sentenceCount > 3
+    || improvedWords > Math.max(45, originalWords * 5)
+    || improved.length > compactLengthLimit;
+}
+
+function getRewriteScopeInstruction(originalPrompt) {
+  const wordCount = countWords(originalPrompt);
+
+  if (wordCount <= 8) {
+    return [
+      'Scope: very short rough prompt.',
+      'Rewrite as one natural sentence, or two short sentences at most.',
+      'Keep the improved prompt under 140 Korean characters or 30 English words when possible.',
+      'Prefer under-expansion over over-expansion.',
+      'Only clarify the core question; do not add procedural details, required documents, fee comparisons, legal/tax analysis, or implementation steps unless explicitly requested.',
+      'Do not add lists, numbered sections, examples, legal/tax/safety disclaimers, country comparisons, or implementation checklists unless explicitly requested.'
+    ].join(' ');
+  }
+
+  if (wordCount <= 20) {
+    return [
+      'Scope: short informal prompt.',
+      'Rewrite as 1-2 natural sentences, 3 sentences only if necessary.',
+      'Clarify the core question and add only the most obvious missing context.',
+      'Prefer under-expansion over over-expansion.',
+      'Do not expand it into a report, checklist, plan, policy analysis, or multi-section answer request unless explicitly requested.'
+    ].join(' ');
+  }
+
+  return [
+    'Scope: detailed prompt.',
+    'Preserve the requested depth and structure.',
+    'Add structure only when it directly improves the user’s stated request.'
+  ].join(' ');
+}
+
+async function compactOverExpandedRewriteWithOpenAI({ client, model, originalPrompt, improvedPrompt, clientLanguage }) {
+  const response = await createJsonChatCompletion({
+    client,
+    model,
+    temperature: 0.2,
+    maxCompletionTokens: 1000,
+    messages: [
+      {
+        role: 'system',
+        content: [
+          'You repair over-expanded prompt rewrites.',
+          'Return only valid JSON.',
+          'Rewrite the improved prompt so it preserves the original user intent but removes unnecessary scope expansion.',
+          getRewriteScopeInstruction(originalPrompt),
+          `Target output language: ${getTargetLanguageLabel(clientLanguage)}.`,
+          'Return this exact JSON shape: {"improved_prompt":"..."}'
+        ].join(' ')
+      },
+      {
+        role: 'user',
+        content: [
+          'Original prompt:',
+          originalPrompt,
+          '',
+          'Over-expanded rewrite:',
+          improvedPrompt
+        ].join('\n')
+      }
+    ]
+  });
+
+  const parsed = JSON.parse(String(response.choices?.[0]?.message?.content || '{}'));
+  const compactPrompt = normalizeInstructionVoice(sanitizeImprovedPrompt(parsed.improved_prompt));
+  if (!compactPrompt) {
+    throw createOpenAIError('OpenAI returned invalid JSON while compacting prompt rewrite.', null, 'invalid_openai_json');
+  }
+
+  return compactPrompt;
 }
 
 function buildTextRevisionPrompt() {
@@ -367,13 +441,6 @@ function buildFallbackPrompt({ originalPrompt, taskCategory, guidelines, clientL
     return buildTextRevisionPrompt();
   }
 
-  if (isPaymentQuestion(prompt)) {
-    return [
-      '웹사이트에 결제 기능을 추가하면 고객이 결제한 돈이 어떤 과정을 거쳐 내 계좌로 입금되는지 설명해주세요.',
-      'PG사 연동, 정산 계좌 설정, 수수료, 정산 주기, 사업자등록 필요 여부를 초보자도 이해할 수 있게 간단히 정리해주세요.'
-    ].join(' ');
-  }
-
   if (isSpecificAnalysisRequest(prompt)) {
     return prompt;
   }
@@ -463,19 +530,6 @@ async function generateImprovedPrompt({ originalPrompt, taskCategory, guidelines
     });
   }
 
-  if (useKoreanRules && isShortPrompt(originalPrompt) && isPaymentQuestion(originalPrompt)) {
-    return buildGeneratedResult({
-      improvedPrompt: buildFallbackPrompt({
-        originalPrompt,
-        taskCategory,
-        guidelines,
-        clientLanguage: normalizedClientLanguage
-      }),
-      originalPrompt,
-      provider: 'rule_based'
-    });
-  }
-
   if (!process.env.OPENAI_API_KEY) {
     if (!shouldAllowOpenAIFallback()) {
       throw createOpenAIError('OPENAI_API_KEY is not configured.', null, 'missing_openai_api_key');
@@ -495,6 +549,7 @@ async function generateImprovedPrompt({ originalPrompt, taskCategory, guidelines
       client,
       model,
       temperature: 0.3,
+      maxCompletionTokens: isShortPrompt(originalPrompt) ? 1200 : 2000,
       messages: [
         {
           role: 'system',
@@ -508,8 +563,10 @@ async function generateImprovedPrompt({ originalPrompt, taskCategory, guidelines
             'If the original request is short or informal, infer the likely intent and make it naturally actionable.',
             'If the original request is short and simple, keep the improved prompt to 1-3 sentences.',
             'For very short requests under 20 words, prefer a compact 1-2 sentence rewrite unless the request clearly needs structure.',
+            getRewriteScopeInstruction(originalPrompt),
             'For short informal questions, do not add numbered sections, checklists, legal disclaimers, country-by-country comparisons, tax analysis, or many subtopics unless the original prompt explicitly asks for them.',
             'Do not turn a broad casual question into a comprehensive professional report request.',
+            'Your main judgment is scope control: improve clarity without increasing task depth beyond what the user asked.',
             'For already specific prompts, preserve the user intent and tighten wording instead of adding new sections or unnecessary detail.',
             'Write the improved prompt as a user instruction addressed to an AI assistant.',
             'Do not write in the assistant voice. Avoid phrases like "I will", "I can", "제가", "드리겠습니다", "알려주시면", or "제공해 드리겠습니다".',
@@ -554,17 +611,18 @@ async function generateImprovedPrompt({ originalPrompt, taskCategory, guidelines
     const parsedPayload = parseGenerationPayload(response.choices?.[0]?.message?.content);
     if (parsedPayload) {
       if (isOverExpandedRewrite(originalPrompt, parsedPayload.improved_prompt)) {
-        const compactImprovedPrompt = buildFallbackPrompt({
+        const compactImprovedPrompt = await compactOverExpandedRewriteWithOpenAI({
+          client,
+          model,
           originalPrompt,
-          taskCategory,
-          guidelines,
+          improvedPrompt: parsedPayload.improved_prompt,
           clientLanguage: normalizedClientLanguage
         });
 
         return buildGeneratedResult({
           improvedPrompt: compactImprovedPrompt,
           originalPrompt,
-          provider: 'rule_based',
+          provider: 'openai',
           fallbackReason: 'overexpanded_openai_rewrite'
         });
       }
