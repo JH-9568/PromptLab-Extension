@@ -29,7 +29,34 @@ function normalizeInstructionVoice(value) {
     .trim();
 }
 
-function normalizePromptAnalysis(value) {
+function countWords(value) {
+  return String(value || '').trim().split(/\s+/).filter(Boolean).length;
+}
+
+function calculateSpecificityScore(analysis, prompt) {
+  const wordCount = countWords(prompt);
+  const weights = wordCount <= 20
+    ? {
+      has_goal: 35,
+      has_context: 10,
+      has_format: 25,
+      has_constraint: 25,
+      has_reference: 5
+    }
+    : {
+      has_goal: 25,
+      has_context: 20,
+      has_format: 20,
+      has_constraint: 20,
+      has_reference: 15
+    };
+
+  return ANALYSIS_KEYS.reduce((score, key) => (
+    score + (analysis[key] ? weights[key] : 0)
+  ), 0);
+}
+
+function normalizePromptAnalysis(value, prompt) {
   const source = value && typeof value === 'object' ? value : {};
   const analysis = {};
 
@@ -37,14 +64,12 @@ function normalizePromptAnalysis(value) {
     analysis[key] = Boolean(source[key]);
   }
 
-  analysis.specificity_score = ANALYSIS_KEYS
-    .filter((key) => analysis[key])
-    .length * 20;
+  analysis.specificity_score = calculateSpecificityScore(analysis, prompt);
 
   return analysis;
 }
 
-function parseGenerationPayload(content) {
+function parseGenerationPayload(content, originalPrompt) {
   const rawContent = String(content || '').trim();
   if (!rawContent) return null;
 
@@ -62,8 +87,8 @@ function parseGenerationPayload(content) {
 
   return {
     improved_prompt: improvedPrompt,
-    before_analysis: normalizePromptAnalysis(parsed.before_analysis),
-    after_analysis: normalizePromptAnalysis(parsed.after_analysis),
+    before_analysis: normalizePromptAnalysis(parsed.before_analysis, originalPrompt),
+    after_analysis: normalizePromptAnalysis(parsed.after_analysis, improvedPrompt),
     provider: 'openai'
   };
 }
@@ -145,10 +170,6 @@ function isLowInformationPrompt(value) {
     || /^(안녕|안녕하세요|하이|헬로|반가워|반갑습니다)$/.test(compactPrompt);
 }
 
-function countWords(value) {
-  return String(value || '').trim().split(/\s+/).filter(Boolean).length;
-}
-
 function buildRewritePolicy(originalPrompt) {
   const text = String(originalPrompt || '');
   const wordCount = countWords(text);
@@ -214,6 +235,11 @@ async function generateImprovedPrompt({ originalPrompt, taskCategory, clientLang
             'Write the improved prompt as a user instruction addressed to an AI assistant.',
             'Avoid assistant-voice phrases such as "I will", "제가", "드리겠습니다", or "알려주시면".',
             'Evaluate the original and improved prompts with these boolean fields: has_goal, has_context, has_format, has_constraint, has_reference.',
+            'has_goal means a clear task, question, desired result, decision, or problem to solve.',
+            'has_context means background, situation, audience, domain, user role, project state, or reason the task matters.',
+            'has_format means an explicit output shape such as list, table, bullets, sections, steps, JSON, Markdown, code, or paragraph style.',
+            'has_constraint means requirements, exclusions, tone, length, language, quality criteria, deadline, feasibility, or decision criteria.',
+            'has_reference means examples, source text, links, attachments, evidence, prior content, rubrics, benchmarks, or material to follow.',
             'Return only valid JSON with this exact shape:',
             '{"improved_prompt":"...","before_analysis":{"has_goal":true,"has_context":false,"has_format":false,"has_constraint":false,"has_reference":false},"after_analysis":{"has_goal":true,"has_context":false,"has_format":true,"has_constraint":true,"has_reference":false}}'
           ].join(' ')
@@ -232,7 +258,7 @@ async function generateImprovedPrompt({ originalPrompt, taskCategory, clientLang
       ]
     });
 
-    const parsedPayload = parseGenerationPayload(response.choices?.[0]?.message?.content);
+    const parsedPayload = parseGenerationPayload(response.choices?.[0]?.message?.content, originalPrompt);
     if (parsedPayload) return parsedPayload;
 
     if (!shouldAllowOpenAIFallback()) {

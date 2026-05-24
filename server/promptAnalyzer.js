@@ -27,6 +27,32 @@ function matchesAny(prompt, patterns) {
   return patterns.some((pattern) => pattern.test(prompt));
 }
 
+function countWords(value) {
+  return String(value || '').trim().split(/\s+/).filter(Boolean).length;
+}
+
+function calculateSpecificityScore(result, prompt) {
+  const weights = countWords(prompt) <= 20
+    ? {
+      has_goal: 35,
+      has_context: 10,
+      has_format: 25,
+      has_constraint: 25,
+      has_reference: 5
+    }
+    : {
+      has_goal: 25,
+      has_context: 20,
+      has_format: 20,
+      has_constraint: 20,
+      has_reference: 15
+    };
+
+  return Object.entries(weights).reduce((score, [key, weight]) => (
+    score + (result[key] ? weight : 0)
+  ), 0);
+}
+
 function analyzePrompt(prompt = '') {
   const normalizedPrompt = String(prompt).trim();
 
@@ -38,8 +64,7 @@ function analyzePrompt(prompt = '') {
     has_reference: matchesAny(normalizedPrompt, REFERENCE_PATTERNS)
   };
 
-  const matchedSignals = Object.values(result).filter(Boolean).length;
-  result.specificity_score = matchedSignals * 20;
+  result.specificity_score = calculateSpecificityScore(result, normalizedPrompt);
 
   return result;
 }
