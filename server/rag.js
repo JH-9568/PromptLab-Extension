@@ -81,11 +81,31 @@ function parseGenerationPayload(content) {
   };
 }
 
+function isReasoningModel(model) {
+  return /^(gpt-5|o[134])\b/i.test(String(model || ''));
+}
+
+async function createJsonChatCompletion({ client, model, temperature, messages }) {
+  const request = {
+    model,
+    response_format: { type: 'json_object' },
+    messages
+  };
+
+  if (isReasoningModel(model)) {
+    request.reasoning_effort = process.env.OPENAI_REASONING_EFFORT || 'low';
+  } else {
+    request.temperature = temperature;
+  }
+
+  return client.chat.completions.create(request);
+}
+
 async function analyzePromptPairWithOpenAI({ client, model, originalPrompt, improvedPrompt }) {
-  const response = await client.chat.completions.create({
+  const response = await createJsonChatCompletion({
+    client,
     model,
     temperature: 0,
-    response_format: { type: 'json_object' },
     messages: [
       {
         role: 'system',
@@ -134,6 +154,18 @@ function buildGeneratedResult({ improvedPrompt, originalPrompt, provider, fallba
     provider,
     ...(fallbackReason ? { fallback_reason: fallbackReason } : {})
   };
+}
+
+function shouldAllowOpenAIFallback() {
+  return String(process.env.ALLOW_OPENAI_FALLBACK || '').toLowerCase() === 'true';
+}
+
+function createOpenAIError(message, cause, fallbackReason) {
+  const error = new Error(message);
+  error.status = 502;
+  error.code = fallbackReason || cause?.code || cause?.status || 'openai_error';
+  error.cause = cause;
+  return error;
 }
 
 function normalizeClientLanguage(value) {
@@ -207,6 +239,10 @@ function isSpecificAnalysisRequest(prompt) {
 function isTextRevisionRequest(prompt) {
   return /문장|글|표현|말투|text|sentence/i.test(prompt)
     && /자연스럽|고쳐|수정|다듬|교정|rewrite|revise|polish/i.test(prompt);
+}
+
+function isPaymentQuestion(prompt) {
+  return /결제|결재|카드|PG|페이먼트|payment|checkout|stripe|토스페이먼츠|포트원|아임포트|수익|돈|입금|정산|계좌/i.test(String(prompt || ''));
 }
 
 function buildTextRevisionPrompt() {
@@ -305,6 +341,14 @@ function buildFallbackPrompt({ originalPrompt, taskCategory, guidelines, clientL
     return buildTextRevisionPrompt();
   }
 
+  if (isPaymentQuestion(prompt)) {
+    return [
+      `"${prompt}"라는 질문에 답해주세요.`,
+      '웹사이트 결제 기능을 붙였을 때 돈이 사용자에게서 결제대행사(PG)를 거쳐 내 계좌로 정산되는 전체 흐름을 설명해주세요.',
+      '필요한 준비물, PG 선택 기준, 사업자/계좌/정산 설정, 구현 단계, 수수료와 세금에서 확인할 점을 초보자도 이해할 수 있게 단계별로 정리해주세요.'
+    ].join(' ');
+  }
+
   if (isSpecificAnalysisRequest(prompt)) {
     return prompt;
   }
@@ -395,6 +439,10 @@ async function generateImprovedPrompt({ originalPrompt, taskCategory, guidelines
   }
 
   if (!process.env.OPENAI_API_KEY) {
+    if (!shouldAllowOpenAIFallback()) {
+      throw createOpenAIError('OPENAI_API_KEY is not configured.', null, 'missing_openai_api_key');
+    }
+
     return buildGeneratedResult({
       improvedPrompt: buildFallbackPrompt({ originalPrompt, taskCategory, guidelines, clientLanguage: normalizedClientLanguage }),
       originalPrompt,
@@ -405,10 +453,10 @@ async function generateImprovedPrompt({ originalPrompt, taskCategory, guidelines
   try {
     const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
     const model = process.env.OPENAI_MODEL || 'gpt-4o-mini';
-    const response = await client.chat.completions.create({
+    const response = await createJsonChatCompletion({
+      client,
       model,
       temperature: 0.3,
-      response_format: { type: 'json_object' },
       messages: [
         {
           role: 'system',
@@ -484,13 +532,22 @@ async function generateImprovedPrompt({ originalPrompt, taskCategory, guidelines
       }
     }
 
-    return buildGeneratedResult({
-      improvedPrompt: buildFallbackPrompt({ originalPrompt, taskCategory, guidelines, clientLanguage: normalizedClientLanguage }),
-      originalPrompt,
-      provider: 'fallback',
-      fallbackReason: 'invalid_openai_json'
-    });
+    if (shouldAllowOpenAIFallback()) {
+      return buildGeneratedResult({
+        improvedPrompt: buildFallbackPrompt({ originalPrompt, taskCategory, guidelines, clientLanguage: normalizedClientLanguage }),
+        originalPrompt,
+        provider: 'fallback',
+        fallbackReason: 'invalid_openai_json'
+      });
+    }
+
+    throw createOpenAIError('OpenAI returned invalid JSON for prompt improvement.', null, 'invalid_openai_json');
   } catch (error) {
+    if (!shouldAllowOpenAIFallback()) {
+      console.warn(`OpenAI prompt improvement failed: ${error.message}`);
+      throw createOpenAIError('OpenAI prompt improvement failed.', error);
+    }
+
     console.warn(`OpenAI prompt improvement failed, using fallback: ${error.message}`);
     return buildGeneratedResult({
       improvedPrompt: buildFallbackPrompt({ originalPrompt, taskCategory, guidelines, clientLanguage: normalizedClientLanguage }),

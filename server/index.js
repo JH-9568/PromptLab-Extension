@@ -97,6 +97,7 @@ app.post('/api/improve', async (req, res, next) => {
       },
       improved_prompt: generation.improved_prompt,
       provider: generation.provider,
+      fallback_reason: generation.fallback_reason,
       before_analysis: beforeAnalysis,
       after_analysis: afterAnalysis
     });
@@ -137,9 +138,11 @@ app.get('/api/logs/export/csv', async (req, res, next) => {
 
 app.use((error, req, res, next) => {
   console.error(error);
-  return res.status(500).json({
-    error: 'Internal server error.',
-    message: process.env.NODE_ENV === 'production' ? undefined : error.message
+  const status = error.status || 500;
+  return res.status(status).json({
+    error: status === 502 ? 'OpenAI prompt improvement failed.' : 'Internal server error.',
+    code: error.code,
+    message: process.env.NODE_ENV === 'production' && status !== 502 ? undefined : error.message
   });
 });
 
