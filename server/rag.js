@@ -245,6 +245,32 @@ function isPaymentQuestion(prompt) {
   return /결제|결재|카드|PG|페이먼트|payment|checkout|stripe|토스페이먼츠|포트원|아임포트|수익|돈|입금|정산|계좌/i.test(String(prompt || ''));
 }
 
+function isShortPrompt(prompt) {
+  return countWords(prompt) <= 20;
+}
+
+function countWords(value) {
+  return String(value || '').trim().split(/\s+/).filter(Boolean).length;
+}
+
+function splitSentences(value) {
+  return String(value || '')
+    .split(/(?<=[.!?。])\s+|(?<=다\.)\s+|(?<=요\.)\s+/)
+    .map((sentence) => sentence.trim())
+    .filter(Boolean);
+}
+
+function isOverExpandedRewrite(originalPrompt, improvedPrompt) {
+  const originalWords = countWords(originalPrompt);
+  if (originalWords > 20) return false;
+
+  const improved = String(improvedPrompt || '');
+  const sentenceCount = splitSentences(improved).length;
+  const improvedWords = countWords(improved);
+
+  return sentenceCount > 3 || improvedWords > Math.max(55, originalWords * 5);
+}
+
 function buildTextRevisionPrompt() {
   return '입력한 문장의 의미는 유지하면서 더 자연스럽고 매끄러운 표현으로 고쳐주세요. 어색한 부분이 있다면 수정 이유를 간단히 설명해주세요.';
 }
@@ -343,9 +369,8 @@ function buildFallbackPrompt({ originalPrompt, taskCategory, guidelines, clientL
 
   if (isPaymentQuestion(prompt)) {
     return [
-      `"${prompt}"라는 질문에 답해주세요.`,
-      '웹사이트 결제 기능을 붙였을 때 돈이 사용자에게서 결제대행사(PG)를 거쳐 내 계좌로 정산되는 전체 흐름을 설명해주세요.',
-      '필요한 준비물, PG 선택 기준, 사업자/계좌/정산 설정, 구현 단계, 수수료와 세금에서 확인할 점을 초보자도 이해할 수 있게 단계별로 정리해주세요.'
+      '웹사이트에 결제 기능을 추가하면 고객이 결제한 돈이 어떤 과정을 거쳐 내 계좌로 입금되는지 설명해주세요.',
+      'PG사 연동, 정산 계좌 설정, 수수료, 정산 주기, 사업자등록 필요 여부를 초보자도 이해할 수 있게 간단히 정리해주세요.'
     ].join(' ');
   }
 
@@ -438,6 +463,19 @@ async function generateImprovedPrompt({ originalPrompt, taskCategory, guidelines
     });
   }
 
+  if (useKoreanRules && isShortPrompt(originalPrompt) && isPaymentQuestion(originalPrompt)) {
+    return buildGeneratedResult({
+      improvedPrompt: buildFallbackPrompt({
+        originalPrompt,
+        taskCategory,
+        guidelines,
+        clientLanguage: normalizedClientLanguage
+      }),
+      originalPrompt,
+      provider: 'rule_based'
+    });
+  }
+
   if (!process.env.OPENAI_API_KEY) {
     if (!shouldAllowOpenAIFallback()) {
       throw createOpenAIError('OPENAI_API_KEY is not configured.', null, 'missing_openai_api_key');
@@ -470,6 +508,8 @@ async function generateImprovedPrompt({ originalPrompt, taskCategory, guidelines
             'If the original request is short or informal, infer the likely intent and make it naturally actionable.',
             'If the original request is short and simple, keep the improved prompt to 1-3 sentences.',
             'For very short requests under 20 words, prefer a compact 1-2 sentence rewrite unless the request clearly needs structure.',
+            'For short informal questions, do not add numbered sections, checklists, legal disclaimers, country-by-country comparisons, tax analysis, or many subtopics unless the original prompt explicitly asks for them.',
+            'Do not turn a broad casual question into a comprehensive professional report request.',
             'For already specific prompts, preserve the user intent and tighten wording instead of adding new sections or unnecessary detail.',
             'Write the improved prompt as a user instruction addressed to an AI assistant.',
             'Do not write in the assistant voice. Avoid phrases like "I will", "I can", "제가", "드리겠습니다", "알려주시면", or "제공해 드리겠습니다".',
@@ -513,6 +553,22 @@ async function generateImprovedPrompt({ originalPrompt, taskCategory, guidelines
 
     const parsedPayload = parseGenerationPayload(response.choices?.[0]?.message?.content);
     if (parsedPayload) {
+      if (isOverExpandedRewrite(originalPrompt, parsedPayload.improved_prompt)) {
+        const compactImprovedPrompt = buildFallbackPrompt({
+          originalPrompt,
+          taskCategory,
+          guidelines,
+          clientLanguage: normalizedClientLanguage
+        });
+
+        return buildGeneratedResult({
+          improvedPrompt: compactImprovedPrompt,
+          originalPrompt,
+          provider: 'rule_based',
+          fallbackReason: 'overexpanded_openai_rewrite'
+        });
+      }
+
       try {
         const pairAnalysis = await analyzePromptPairWithOpenAI({
           client,
