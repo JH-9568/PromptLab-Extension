@@ -305,6 +305,25 @@ function getRewriteScopeInstruction(originalPrompt) {
   ].join(' ');
 }
 
+function getPreservationInstruction(originalPrompt) {
+  const hasExplicitCount = /\b\d+\b|[0-9]+\s*(개|가지|명|문장|단계|항목)|[한두세네다섯여섯일곱여덟아홉열]\s*(개|가지|명|문장|단계|항목)/.test(String(originalPrompt || ''));
+  const hasExplicitList = /목록|리스트|불릿|bullet|list|번호|numbered/i.test(String(originalPrompt || ''));
+  const hasExplicitTable = /표|테이블|table/i.test(String(originalPrompt || ''));
+
+  return [
+    'Preserve user intent exactly.',
+    hasExplicitCount
+      ? 'The original prompt includes a requested quantity; preserve it.'
+      : 'Do not invent exact quantities such as 3, 5, 10 items, examples, steps, or sentences.',
+    hasExplicitList
+      ? 'The original prompt asks for a list-like format; preserve that format.'
+      : 'Do not force a list, numbered structure, checklist, or table unless the original prompt asks for it or the request is impossible to answer clearly without light structure.',
+    hasExplicitTable
+      ? 'The original prompt asks for a table; preserve it.'
+      : 'Do not add table output unless explicitly requested.'
+  ].join(' ');
+}
+
 async function compactOverExpandedRewriteWithOpenAI({ client, model, originalPrompt, improvedPrompt, clientLanguage }) {
   const response = await createJsonChatCompletion({
     client,
@@ -319,6 +338,7 @@ async function compactOverExpandedRewriteWithOpenAI({ client, model, originalPro
           'Return only valid JSON.',
           'Rewrite the improved prompt so it preserves the original user intent but removes unnecessary scope expansion.',
           getRewriteScopeInstruction(originalPrompt),
+          getPreservationInstruction(originalPrompt),
           `Target output language: ${getTargetLanguageLabel(clientLanguage)}.`,
           'Return this exact JSON shape: {"improved_prompt":"..."}'
         ].join(' ')
@@ -564,8 +584,10 @@ async function generateImprovedPrompt({ originalPrompt, taskCategory, guidelines
             'If the original request is short and simple, keep the improved prompt to 1-3 sentences.',
             'For very short requests under 20 words, prefer a compact 1-2 sentence rewrite unless the request clearly needs structure.',
             getRewriteScopeInstruction(originalPrompt),
+            getPreservationInstruction(originalPrompt),
             'For short informal questions, do not add numbered sections, checklists, legal disclaimers, country-by-country comparisons, tax analysis, or many subtopics unless the original prompt explicitly asks for them.',
             'Do not turn a broad casual question into a comprehensive professional report request.',
+            'Never invent exact counts, fixed numbers of examples, fixed numbers of sections, output formats, or evaluation criteria that the original prompt did not ask for.',
             'Your main judgment is scope control: improve clarity without increasing task depth beyond what the user asked.',
             'For already specific prompts, preserve the user intent and tighten wording instead of adding new sections or unnecessary detail.',
             'Write the improved prompt as a user instruction addressed to an AI assistant.',
