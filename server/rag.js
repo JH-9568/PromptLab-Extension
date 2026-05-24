@@ -97,6 +97,47 @@ async function createJsonChatCompletion({ client, model, messages }) {
   return client.chat.completions.create(request);
 }
 
+async function analyzePromptPairWithOpenAI({ client, model, originalPrompt, improvedPrompt }) {
+  const response = await createJsonChatCompletion({
+    client,
+    model,
+    messages: [
+      {
+        role: 'system',
+        content: [
+          'You are a prompt structure evaluator.',
+          'Evaluate whether each prompt contains these five fields. Evaluate semantic meaning, not exact keywords.',
+          'Return only valid JSON. Do not rewrite or explain.',
+          'has_goal: a clear task, question, desired result, decision, or problem to solve.',
+          'has_context: background, situation, audience, domain, user role, project state, or why the task matters.',
+          'has_format: explicit output shape such as list, table, bullets, sections, steps, JSON, Markdown, code, or paragraph style.',
+          'has_constraint: requirements, exclusions, tone, length, language, quality criteria, deadline, feasibility, or decision criteria.',
+          'has_reference: examples, source text, links, attachments, evidence, prior content, rubrics, benchmarks, or material to follow.',
+          'Korean hints: "초보자", "입문자", "학생", "개발자", or "대상" indicate context/audience. "단계별", "목록", "표", "문단", "번호로", or "요약" indicate format. "쉽게", "간결하게", "자세히", "한국어로", "실용적인", or "이해할 수 있게" indicate constraints.',
+          'Return this exact JSON shape:',
+          '{"before_analysis":{"has_goal":true,"has_context":false,"has_format":false,"has_constraint":false,"has_reference":false},"after_analysis":{"has_goal":true,"has_context":false,"has_format":true,"has_constraint":true,"has_reference":false}}'
+        ].join(' ')
+      },
+      {
+        role: 'user',
+        content: [
+          'Original prompt:',
+          originalPrompt,
+          '',
+          'Improved prompt:',
+          improvedPrompt
+        ].join('\n')
+      }
+    ]
+  });
+
+  const parsed = JSON.parse(String(response.choices?.[0]?.message?.content || '{}'));
+  return {
+    before_analysis: normalizePromptAnalysis(parsed.before_analysis),
+    after_analysis: normalizePromptAnalysis(parsed.after_analysis)
+  };
+}
+
 function buildGeneratedResult({ improvedPrompt, originalPrompt, provider, fallbackReason }) {
   const normalizedImprovedPrompt = normalizeInstructionVoice(improvedPrompt);
   return {
@@ -223,6 +264,7 @@ async function generateImprovedPrompt({ originalPrompt, taskCategory, clientLang
             'has_format means an explicit output shape such as list, table, bullets, sections, steps, JSON, Markdown, code, or paragraph style.',
             'has_constraint means requirements, exclusions, tone, length, language, quality criteria, deadline, feasibility, or decision criteria.',
             'has_reference means examples, source text, links, attachments, evidence, prior content, rubrics, benchmarks, or material to follow.',
+            'Korean analysis hints: "초보자", "입문자", "학생", "개발자", or "대상" indicate context/audience. "단계별", "목록", "표", "문단", "번호로", or "요약" indicate format. "쉽게", "간결하게", "자세히", "한국어로", "실용적인", or "이해할 수 있게" indicate constraints.',
             'Return only valid JSON with this exact shape:',
             '{"improved_prompt":"...","before_analysis":{"has_goal":true,"has_context":false,"has_format":false,"has_constraint":false,"has_reference":false},"after_analysis":{"has_goal":true,"has_context":false,"has_format":true,"has_constraint":true,"has_reference":false}}'
           ].join(' ')
@@ -242,7 +284,24 @@ async function generateImprovedPrompt({ originalPrompt, taskCategory, clientLang
     });
 
     const parsedPayload = parseGenerationPayload(response.choices?.[0]?.message?.content, originalPrompt);
-    if (parsedPayload) return parsedPayload;
+    if (parsedPayload) {
+      try {
+        const pairAnalysis = await analyzePromptPairWithOpenAI({
+          client,
+          model,
+          originalPrompt,
+          improvedPrompt: parsedPayload.improved_prompt
+        });
+
+        return {
+          ...parsedPayload,
+          ...pairAnalysis
+        };
+      } catch (analysisError) {
+        console.warn(`OpenAI prompt analysis failed, using generation analysis: ${analysisError.message}`);
+        return parsedPayload;
+      }
+    }
 
     if (!shouldAllowOpenAIFallback()) {
       throw createOpenAIError('OpenAI returned invalid JSON for prompt improvement.', null, 'invalid_openai_json');
