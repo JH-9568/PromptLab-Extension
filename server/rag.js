@@ -112,8 +112,8 @@ async function analyzePromptPairWithOpenAI({ client, model, originalPrompt, impr
           'has_context: background, situation, audience, domain, user role, project state, or why the task matters.',
           'has_format: explicit output shape such as list, table, bullets, sections, steps, JSON, Markdown, code, or paragraph style.',
           'has_constraint: requirements, exclusions, tone, length, language, quality criteria, deadline, feasibility, or decision criteria.',
-          'has_reference: examples, source text, links, attachments, evidence, prior content, rubrics, benchmarks, or material to follow.',
-          'Korean hints: "초보자", "입문자", "학생", "개발자", or "대상" indicate context/audience. "단계별", "목록", "표", "문단", "번호로", or "요약" indicate format. "쉽게", "간결하게", "자세히", "한국어로", "실용적인", or "이해할 수 있게" indicate constraints.',
+          'has_reference: true when the prompt includes or asks the assistant to include/use examples, source text, links, attachments, evidence, prior content, rubrics, benchmarks, or material to follow.',
+          'Korean hints: "초보자", "입문자", "학생", "개발자", or "대상" indicate context/audience. "단계별", "목록", "표", "문단", "번호로", or "요약" indicate format. "쉽게", "간결하게", "자세히", "한국어로", "실용적인", or "이해할 수 있게" indicate constraints. "예시", "사례", "참고", "자료", "출처", or "근거" indicate reference.',
           'Return this exact JSON shape:',
           '{"before_analysis":{"has_goal":true,"has_context":false,"has_format":false,"has_constraint":false,"has_reference":false},"after_analysis":{"has_goal":true,"has_context":false,"has_format":true,"has_constraint":true,"has_reference":false}}'
         ].join(' ')
@@ -198,7 +198,7 @@ function buildRewritePolicy(originalPrompt) {
   const text = String(originalPrompt || '');
   const wordCount = countWords(text);
   const hasExplicitCount = /\d+\s*(개|가지|명|문장|단계|항목|items?|steps?|examples?)|[한두세네다섯여섯일곱여덟아홉열]\s*(개|가지|문장|단계|항목)/i.test(text);
-  const hasExplicitFormat = /목록|리스트|불릿|번호|표|테이블|json|markdown|bullet|list|table/i.test(text);
+  const hasExplicitFormat = /단계별|목록|리스트|불릿|번호|섹션|문단|요약|표|테이블|json|markdown|bullet|list|table|step|section/i.test(text);
 
   return [
     'Preserve the user intent and scope. Improve the prompt; do not answer it.',
@@ -206,13 +206,17 @@ function buildRewritePolicy(originalPrompt) {
     'Apply prompt-engineering best practices when they genuinely improve the prompt: clarify the task, add useful context, name the expected outcome, specify a helpful output shape, and add constraints or missing-information handling.',
     'Use your judgment. Add role, objective, context, output structure, or constraints only when they are naturally implied by the original request or clearly make the prompt more usable.',
     'A good rewrite may be more specific than the original, but it must not become a different or larger task.',
-    'Do not invent exact counts, output formats, examples, categories, sections, checklists, legal/tax analysis, or implementation detail that the user did not ask for.',
-    'Do not preview or guess the answer content. If the user asks to find, search, or send something, keep that retrieval intent without adding assumed subtopics or examples.',
+    'If the original prompt is already clear, still make a meaningful but compact improvement by adding a short directly relevant answer-quality requirement, such as examples, common mistakes, caveats, or actionable tips.',
+    'For learning or explanation requests, prefer adding simple examples as the answer-quality requirement unless the original prompt forbids examples. Do not add a checklist unless the user asks for one.',
+    'When adding answer-quality requirements, append a short phrase or sentence. Do not create a full rubric, nested structure, parenthetical schema, or detailed grading criteria unless requested.',
+    'Do not return a rewrite that only changes wording, grammar, or synonyms.',
+    'Do not invent exact counts, unrelated output formats, arbitrary categories, legal/tax analysis, or implementation detail that the user did not ask for.',
+    'Do not preview or guess the answer content. You may add generally useful answer-quality requirements, such as practical examples, common mistakes, caveats, or actionable tips, only when they directly fit the original request.',
     hasExplicitCount ? 'The user requested a quantity; preserve it.' : 'The user did not request a quantity; do not add one.',
     hasExplicitFormat ? 'The user requested an output format; preserve it.' : 'The user did not request a specific output format; do not force one.',
     wordCount <= 20
-      ? 'For short informal prompts, produce a compact 1-2 sentence rewrite.'
-      : 'For detailed prompts, preserve the requested depth and only tighten wording or structure where it helps.'
+      ? 'For short prompts, keep the rewrite concise but make it meaningfully more useful than a grammar-only polish.'
+      : 'For detailed prompts, preserve the requested depth and improve clarity, structure, and answer quality where it helps.'
   ].join(' ');
 }
 
@@ -263,8 +267,8 @@ async function generateImprovedPrompt({ originalPrompt, taskCategory, clientLang
             'has_context means background, situation, audience, domain, user role, project state, or reason the task matters.',
             'has_format means an explicit output shape such as list, table, bullets, sections, steps, JSON, Markdown, code, or paragraph style.',
             'has_constraint means requirements, exclusions, tone, length, language, quality criteria, deadline, feasibility, or decision criteria.',
-            'has_reference means examples, source text, links, attachments, evidence, prior content, rubrics, benchmarks, or material to follow.',
-            'Korean analysis hints: "초보자", "입문자", "학생", "개발자", or "대상" indicate context/audience. "단계별", "목록", "표", "문단", "번호로", or "요약" indicate format. "쉽게", "간결하게", "자세히", "한국어로", "실용적인", or "이해할 수 있게" indicate constraints.',
+            'has_reference means the prompt includes or asks the assistant to include/use examples, source text, links, attachments, evidence, prior content, rubrics, benchmarks, or material to follow.',
+            'Korean analysis hints: "초보자", "입문자", "학생", "개발자", or "대상" indicate context/audience. "단계별", "목록", "표", "문단", "번호로", or "요약" indicate format. "쉽게", "간결하게", "자세히", "한국어로", "실용적인", or "이해할 수 있게" indicate constraints. "예시", "사례", "참고", "자료", "출처", or "근거" indicate reference.',
             'Return only valid JSON with this exact shape:',
             '{"improved_prompt":"...","before_analysis":{"has_goal":true,"has_context":false,"has_format":false,"has_constraint":false,"has_reference":false},"after_analysis":{"has_goal":true,"has_context":false,"has_format":true,"has_constraint":true,"has_reference":false}}'
           ].join(' ')
@@ -277,7 +281,7 @@ async function generateImprovedPrompt({ originalPrompt, taskCategory, clientLang
             'Original prompt:',
             originalPrompt,
             '',
-            'Rewrite the original prompt only. Do not add output formats, counts, examples, or subtopics that are not present in the original prompt.'
+            'Rewrite the original prompt only. The rewrite must be meaningfully more useful than the original, not just a synonym or grammar polish. Do not add unrelated output formats, exact counts, arbitrary examples, or unrelated subtopics.'
           ].join('\n')
         }
       ]
