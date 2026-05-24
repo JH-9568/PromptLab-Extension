@@ -80,7 +80,6 @@ app.post('/api/improve', async (req, res, next) => {
     const generation = await generateImprovedPrompt({
       originalPrompt,
       taskCategory: normalizedCategory,
-      guidelines: guidelines.content,
       clientLanguage
     });
     const beforeAnalysis = generation.before_analysis || analyzePrompt(originalPrompt);

@@ -33,30 +33,13 @@ function countWords(value) {
   return String(value || '').trim().split(/\s+/).filter(Boolean).length;
 }
 
-function calculateSpecificityScore(analysis, prompt) {
-  const wordCount = countWords(prompt);
-  const weights = wordCount <= 20
-    ? {
-      has_goal: 35,
-      has_context: 10,
-      has_format: 25,
-      has_constraint: 25,
-      has_reference: 5
-    }
-    : {
-      has_goal: 25,
-      has_context: 20,
-      has_format: 20,
-      has_constraint: 20,
-      has_reference: 15
-    };
-
-  return ANALYSIS_KEYS.reduce((score, key) => (
-    score + (analysis[key] ? weights[key] : 0)
-  ), 0);
+function calculateSpecificityScore(analysis) {
+  return ANALYSIS_KEYS
+    .filter((key) => analysis[key])
+    .length * 20;
 }
 
-function normalizePromptAnalysis(value, prompt) {
+function normalizePromptAnalysis(value) {
   const source = value && typeof value === 'object' ? value : {};
   const analysis = {};
 
@@ -64,7 +47,7 @@ function normalizePromptAnalysis(value, prompt) {
     analysis[key] = Boolean(source[key]);
   }
 
-  analysis.specificity_score = calculateSpecificityScore(analysis, prompt);
+  analysis.specificity_score = calculateSpecificityScore(analysis);
 
   return analysis;
 }
@@ -87,8 +70,8 @@ function parseGenerationPayload(content, originalPrompt) {
 
   return {
     improved_prompt: improvedPrompt,
-    before_analysis: normalizePromptAnalysis(parsed.before_analysis, originalPrompt),
-    after_analysis: normalizePromptAnalysis(parsed.after_analysis, improvedPrompt),
+    before_analysis: normalizePromptAnalysis(parsed.before_analysis),
+    after_analysis: normalizePromptAnalysis(parsed.after_analysis),
     provider: 'openai'
   };
 }
