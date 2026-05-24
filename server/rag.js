@@ -203,7 +203,8 @@ async function generateImprovedPrompt({ originalPrompt, taskCategory, clientLang
         {
           role: 'system',
           content: [
-            'You are a prompt improvement assistant.',
+            'You are an expert prompt engineer.',
+            'Your job is to rewrite user prompts so they are clearer, more usable, and faithful to the original intent.',
             `Target output language: ${getTargetLanguageLabel(normalizedClientLanguage)}.`,
             buildRewritePolicy(originalPrompt),
             'Task category is only a hint; prioritize the original prompt.',
