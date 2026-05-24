@@ -158,6 +158,9 @@ function buildRewritePolicy(originalPrompt) {
   return [
     'Preserve the user intent and scope. Improve the prompt; do not answer it.',
     'Keep useful ambiguity when the user is only asking a rough question. Do not over-specify hidden requirements.',
+    'Apply prompt-engineering best practices when they genuinely improve the prompt: clarify the task, add useful context, name the expected outcome, specify a helpful output shape, and add constraints or missing-information handling.',
+    'Use your judgment. Add role, objective, context, output structure, or constraints only when they are naturally implied by the original request or clearly make the prompt more usable.',
+    'A good rewrite may be more specific than the original, but it must not become a different or larger task.',
     'Do not invent exact counts, output formats, examples, categories, sections, checklists, legal/tax analysis, or implementation detail that the user did not ask for.',
     'Do not preview or guess the answer content. If the user asks to find, search, or send something, keep that retrieval intent without adding assumed subtopics or examples.',
     hasExplicitCount ? 'The user requested a quantity; preserve it.' : 'The user did not request a quantity; do not add one.',
