@@ -248,6 +248,7 @@ async function generateImprovedPrompt({ originalPrompt, taskCategory, clientLang
   try {
     const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
     const model = process.env.OPENAI_MODEL || 'gpt-4o-mini';
+    const analysisModel = process.env.OPENAI_ANALYSIS_MODEL || model;
     const response = await createJsonChatCompletion({
       client,
       model,
@@ -292,7 +293,7 @@ async function generateImprovedPrompt({ originalPrompt, taskCategory, clientLang
       try {
         const pairAnalysis = await analyzePromptPairWithOpenAI({
           client,
-          model,
+          model: analysisModel,
           originalPrompt,
           improvedPrompt: parsedPayload.improved_prompt
         });
