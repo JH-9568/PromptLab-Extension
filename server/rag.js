@@ -52,6 +52,19 @@ function normalizePromptAnalysis(value) {
   return analysis;
 }
 
+function mergePromptAnalysis(modelAnalysis, prompt) {
+  const modelResult = normalizePromptAnalysis(modelAnalysis);
+  const localResult = analyzePrompt(prompt);
+  const merged = {};
+
+  for (const key of ANALYSIS_KEYS) {
+    merged[key] = Boolean(modelResult[key] || localResult[key]);
+  }
+
+  merged.specificity_score = calculateSpecificityScore(merged);
+  return merged;
+}
+
 function parseGenerationPayload(content, originalPrompt) {
   const rawContent = String(content || '').trim();
   if (!rawContent) return null;
@@ -70,8 +83,8 @@ function parseGenerationPayload(content, originalPrompt) {
 
   return {
     improved_prompt: improvedPrompt,
-    before_analysis: normalizePromptAnalysis(parsed.before_analysis),
-    after_analysis: normalizePromptAnalysis(parsed.after_analysis),
+    before_analysis: mergePromptAnalysis(parsed.before_analysis, originalPrompt),
+    after_analysis: mergePromptAnalysis(parsed.after_analysis, improvedPrompt),
     provider: 'openai'
   };
 }
@@ -162,11 +175,12 @@ function buildRewritePolicy(originalPrompt) {
   return [
     'Preserve the user intent and scope. Improve the prompt; do not answer it.',
     'Keep useful ambiguity when the user is only asking a rough question. Do not over-specify hidden requirements.',
-    'Apply prompt-engineering best practices when they genuinely improve the prompt: clarify the task, add useful context, name the expected outcome, specify a helpful output shape, and add constraints or missing-information handling.',
-    'Use your judgment. Add role, objective, context, output structure, or constraints only when they are naturally implied by the original request or clearly make the prompt more usable.',
+    'Apply prompt-engineering best practices selectively, not exhaustively. Choose only the one or two improvements that most help this specific prompt.',
+    'Use your judgment. Add role, objective, context, output structure, examples, or constraints only when they are naturally implied by the original request or clearly make the prompt more usable.',
     'A good rewrite may be more specific than the original, but it must not become a different or larger task.',
-    'If the original prompt is already clear, still make a meaningful but compact improvement by adding a short directly relevant answer-quality requirement, such as examples, common mistakes, caveats, or actionable tips.',
-    'For learning or explanation requests, prefer adding simple examples as the answer-quality requirement unless the original prompt forbids examples. Do not add a checklist unless the user asks for one.',
+    'Do not try to satisfy every prompt-engineering guideline at once. Avoid piling on role, context, format, constraints, examples, caveats, and success criteria in the same rewrite unless the user asked for that level of detail.',
+    'If the original prompt is already clear, make a small meaningful improvement by adding at most one short directly relevant answer-quality requirement, such as examples, common mistakes, caveats, or actionable tips.',
+    'For learning or explanation requests, simple examples are often useful, but add them only as a short requirement. Do not add a checklist unless the user asks for one.',
     'When adding answer-quality requirements, append a short phrase or sentence. Do not create a full rubric, nested structure, parenthetical schema, or detailed grading criteria unless requested.',
     'Do not return a rewrite that only changes wording, grammar, or synonyms.',
     'Do not invent exact counts, unrelated output formats, arbitrary categories, legal/tax analysis, or implementation detail that the user did not ask for.',
@@ -174,7 +188,7 @@ function buildRewritePolicy(originalPrompt) {
     hasExplicitCount ? 'The user requested a quantity; preserve it.' : 'The user did not request a quantity; do not add one.',
     hasExplicitFormat ? 'The user requested an output format; preserve it.' : 'The user did not request a specific output format; do not force one.',
     wordCount <= 20
-      ? 'For short prompts, keep the rewrite concise but make it meaningfully more useful than a grammar-only polish.'
+      ? 'For short prompts, keep the rewrite to 1-2 sentences and under about 180 Korean characters or 45 English words. Add at most one new answer-quality requirement. Do not add parenthetical lists, multiple options, or many subtopics.'
       : 'For detailed prompts, preserve the requested depth and improve clarity, structure, and answer quality where it helps.'
   ].join(' ');
 }
@@ -240,7 +254,7 @@ async function generateImprovedPrompt({ originalPrompt, taskCategory, clientLang
             'Original prompt:',
             originalPrompt,
             '',
-            'Rewrite the original prompt only. The rewrite must be meaningfully more useful than the original, not just a synonym or grammar polish. Do not add unrelated output formats, exact counts, arbitrary examples, or unrelated subtopics.'
+            'Rewrite the original prompt only. The rewrite must be meaningfully more useful than the original, not just a synonym or grammar polish. Keep short prompts compact. Do not add unrelated output formats, exact counts, parenthetical option lists, arbitrary examples, or unrelated subtopics.'
           ].join('\n')
         }
       ]

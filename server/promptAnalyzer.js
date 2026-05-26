@@ -1,25 +1,25 @@
 const GOAL_PATTERNS = [
-  /목표|목적|원해|해줘|고쳐|수정|작성|분석|요약|설명|비교|추천|개선|만들/i,
+  /목표|목적|원해|해줘|줘|알려줘|찾아|보내줘|고쳐|수정|작성|분석|요약|설명|비교|추천|개선|만들|방법|어떻게|뭐가|무엇/i,
   /\b(goal|objective|want|need|create|write|fix|debug|analyze|summarize|explain|compare|improve)\b/i
 ];
 
 const CONTEXT_PATTERNS = [
-  /배경|상황|맥락|대상|사용자|현재|기존|프로젝트|문제/i,
+  /배경|상황|맥락|대상|사용자|현재|기존|프로젝트|문제|초보자|입문자|학생|개발자|실무자|웹사이트|서비스/i,
   /\b(context|background|audience|user|current|existing|project|problem|scenario)\b/i
 ];
 
 const FORMAT_PATTERNS = [
-  /형식|포맷|표|목록|불릿|단계|json|markdown|코드블록|섹션/i,
+  /형식|포맷|표|목록|불릿|단계|단계별|번호|문단|요약|json|markdown|코드블록|섹션/i,
   /\b(format|table|list|bullet|step|json|markdown|csv|section)\b/i
 ];
 
 const CONSTRAINT_PATTERNS = [
-  /제약|조건|반드시|하지 마|포함|제외|길이|분량|톤|언어|마감/i,
+  /제약|조건|반드시|하지 마|포함|제외|길이|분량|톤|언어|마감|쉽게|간결|자세히|구체적|실용적|한국어|이해할 수 있게/i,
   /\b(constraint|must|should|avoid|include|exclude|limit|tone|language|deadline)\b/i
 ];
 
 const REFERENCE_PATTERNS = [
-  /참고|예시|샘플|기준|첨부|아래|위 내용|링크|문서/i,
+  /참고|예시|사례|샘플|기준|첨부|아래|위 내용|링크|문서|출처|근거|자료/i,
   /\b(reference|example|sample|attached|below|above|link|doc|source)\b/i
 ];
 
