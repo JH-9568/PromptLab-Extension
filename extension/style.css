@@ -180,6 +180,24 @@
   opacity: 0.65;
 }
 
+.promptlab-secondary {
+  width: 100%;
+  min-height: 32px;
+  margin-top: 6px;
+  border: 1px solid #d0d7de;
+  border-radius: 6px;
+  background: #ffffff;
+  color: #3b0764;
+  font-size: 12px;
+  font-weight: 650;
+  cursor: pointer;
+}
+
+.promptlab-secondary:disabled {
+  cursor: not-allowed;
+  opacity: 0.65;
+}
+
 .promptlab-status {
   min-height: 16px;
   margin-top: 8px;
@@ -343,6 +361,7 @@
 }
 
 .promptlab-rating-buttons button:hover,
+#promptlab-reload:hover,
 #promptlab-original:hover,
 #promptlab-close:hover {
   background: #f6f8fa;

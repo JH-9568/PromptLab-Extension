@@ -32,6 +32,7 @@
     logError: i18n('logError'),
     subtitle: i18n('subtitle'),
     currentPrompt: i18n('currentPrompt'),
+    reloadCurrentPrompt: i18n('reloadCurrentPrompt'),
     insertImproved: i18n('insertImproved'),
     keepOriginal: i18n('keepOriginal'),
     ratingTitle: i18n('ratingTitle')
@@ -365,9 +366,12 @@
 
   function setBusy(isBusy) {
     const button = document.querySelector('#promptlab-analyze');
-    if (!button) return;
-    button.disabled = isBusy;
-    button.textContent = isBusy ? UI_TEXT.busy : UI_TEXT.improveButton;
+    const reloadButton = document.querySelector('#promptlab-reload');
+    if (button) {
+      button.disabled = isBusy;
+      button.textContent = isBusy ? UI_TEXT.busy : UI_TEXT.improveButton;
+    }
+    if (reloadButton) reloadButton.disabled = isBusy;
   }
 
   function updateFabPlacement() {
@@ -427,18 +431,45 @@
     updateFabCue();
   }
 
-  async function analyzePrompt() {
+  function resetAnalysisResult() {
+    state.sessionId = null;
+    state.originalPrompt = '';
+    state.improvedPrompt = '';
+    state.response = null;
+    state.usedImproved = null;
+    state.satisfactionScore = null;
+    state.awaitingRating = false;
+    stopAnswerCheck();
+    hideRatingPrompt();
+    renderResult();
+  }
+
+  function getCurrentPromptDraft() {
+    const currentPrompt = document.querySelector('#promptlab-current');
+    return String(currentPrompt?.value || '').trim();
+  }
+
+  function reloadCurrentPromptFromInput() {
     const input = findPromptInput();
     const prompt = getPromptText(input);
+    const currentPrompt = document.querySelector('#promptlab-current');
+
+    if (!currentPrompt) return;
+
+    currentPrompt.value = prompt;
+    resetAnalysisResult();
+    setStatus(prompt ? '' : UI_TEXT.noPrompt, !prompt);
+    currentPrompt.focus();
+  }
+
+  async function analyzePrompt() {
+    const prompt = getCurrentPromptDraft();
     const category = DEFAULT_TASK_CATEGORY;
 
     if (!prompt) {
       setStatus(UI_TEXT.noPrompt, true);
       return;
     }
-
-    const currentPrompt = document.querySelector('#promptlab-current');
-    if (currentPrompt) currentPrompt.value = prompt;
 
     state.sessionId = createId('session');
     state.originalPrompt = prompt;
@@ -571,7 +602,7 @@
     }
 
     panel.hidden = false;
-    document.querySelector('#promptlab-current').value = getPromptText(input);
+    document.querySelector('#promptlab-current').value = state.response ? state.originalPrompt : getPromptText(input);
     setStatus('');
     renderResult();
   }
@@ -602,7 +633,8 @@
         </header>
         <div class="promptlab-body">
           <label class="promptlab-label" for="promptlab-current">${escapeHtml(UI_TEXT.currentPrompt)}</label>
-          <textarea id="promptlab-current" readonly></textarea>
+          <textarea id="promptlab-current"></textarea>
+          <button id="promptlab-reload" class="promptlab-secondary" type="button">${escapeHtml(UI_TEXT.reloadCurrentPrompt)}</button>
           <button id="promptlab-analyze" class="promptlab-primary" type="button">${escapeHtml(UI_TEXT.improveButton)}</button>
           <div id="promptlab-status" class="promptlab-status" aria-live="polite"></div>
           <div id="promptlab-result"></div>
@@ -638,6 +670,7 @@
     window.addEventListener('resize', updateFabPlacement);
 
     document.querySelector('#promptlab-close').addEventListener('click', closePanel);
+    document.querySelector('#promptlab-reload').addEventListener('click', reloadCurrentPromptFromInput);
     document.querySelector('#promptlab-analyze').addEventListener('click', analyzePrompt);
     document.querySelector('#promptlab-insert').addEventListener('click', () => {
       handlePromptChoice(state.improvedPrompt, true);

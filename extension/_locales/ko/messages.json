@@ -33,7 +33,7 @@
     "message": "PromptLab 열기"
   },
   "noPrompt": {
-    "message": "현재 ChatGPT 입력창에 프롬프트가 없습니다."
+    "message": "개선할 프롬프트가 없습니다."
   },
   "improving": {
     "message": "프롬프트를 개선하고 있습니다..."
@@ -71,6 +71,9 @@
   },
   "currentPrompt": {
     "message": "현재 프롬프트"
+  },
+  "reloadCurrentPrompt": {
+    "message": "ChatGPT 입력창에서 다시 가져오기"
   },
   "insertImproved": {
     "message": "개선본 넣기"

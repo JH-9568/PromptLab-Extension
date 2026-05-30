@@ -33,7 +33,7 @@
     "message": "Open PromptLab"
   },
   "noPrompt": {
-    "message": "There is no prompt in the ChatGPT input box."
+    "message": "There is no prompt to improve."
   },
   "improving": {
     "message": "Improving the prompt..."
@@ -71,6 +71,9 @@
   },
   "currentPrompt": {
     "message": "Current prompt"
+  },
+  "reloadCurrentPrompt": {
+    "message": "Reload from ChatGPT input"
   },
   "insertImproved": {
     "message": "Insert improved"
