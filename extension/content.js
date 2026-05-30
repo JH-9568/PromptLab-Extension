@@ -66,6 +66,7 @@
     ]
   };
   const DEFAULT_TASK_CATEGORY = 'etc';
+  const ANSWER_STABLE_DELAY_MS = 4500;
   const TARGET_PLATFORM = detectTargetPlatform();
   const CLIENT_LANGUAGE = navigator.languages?.[0] || navigator.language || 'en';
   const i18n = (key, substitutions) => chrome.i18n.getMessage(key, substitutions) || key;
@@ -121,6 +122,8 @@
     awaitingRating: false,
     assistantMessageBaseline: 0,
     assistantTextBaseline: '',
+    answerLastSnapshot: '',
+    answerStableSince: 0,
     activePrompt: '',
     answerCheckTimer: null,
     answerCheckStartedAt: 0,
@@ -208,6 +211,28 @@
       getAssistantMessageCount() > state.assistantMessageBaseline
       || getAssistantTextSnapshot() !== state.assistantTextBaseline
     );
+  }
+
+  function isAssistantAnswerStable() {
+    const snapshot = getAssistantTextSnapshot();
+    const hasNewAnswer = (
+      getAssistantMessageCount() > state.assistantMessageBaseline
+      || snapshot !== state.assistantTextBaseline
+    );
+
+    if (!hasNewAnswer) {
+      state.answerLastSnapshot = '';
+      state.answerStableSince = 0;
+      return false;
+    }
+
+    if (snapshot !== state.answerLastSnapshot) {
+      state.answerLastSnapshot = snapshot;
+      state.answerStableSince = Date.now();
+      return false;
+    }
+
+    return Date.now() - state.answerStableSince >= ANSWER_STABLE_DELAY_MS;
   }
 
   function getEditableTarget(input) {
@@ -389,6 +414,8 @@
     clearInterval(state.answerCheckTimer);
     state.answerCheckTimer = null;
     state.answerCheckStartedAt = 0;
+    state.answerLastSnapshot = '';
+    state.answerStableSince = 0;
 
     if (state.answerObserver) {
       state.answerObserver.disconnect();
@@ -407,7 +434,7 @@
         return;
       }
 
-      if (hasNewAssistantAnswer()) {
+      if (isAssistantAnswerStable()) {
         showRatingPrompt();
         stopAnswerCheck();
       }
@@ -427,7 +454,7 @@
         return;
       }
 
-      if (hasNewAssistantAnswer()) {
+      if (isAssistantAnswerStable()) {
         showRatingPrompt();
         stopAnswerCheck();
         return;
