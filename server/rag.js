@@ -319,6 +319,7 @@ async function generateImprovedPrompt({ originalPrompt, taskCategory, clientLang
             buildRewritePolicy(originalPrompt),
             'Task category is only a hint; prioritize the original prompt.',
             'Write the improved prompt as a user instruction addressed to an AI assistant.',
+            'The improved_prompt and improvement_reason must both use the same language as the original prompt unless the user explicitly asks for another language.',
             'Avoid assistant-voice phrases such as "I will", "제가", "드리겠습니다", or "알려주시면".',
             'Choose exactly one improvement_type: minimal_cleanup, clarify_goal, add_context_request, add_output_structure, add_constraints, add_examples_or_references, ask_clarifying_question, already_strong.',
             'Use ask_clarifying_question when the original prompt is too vague and adding invented context would be risky.',
