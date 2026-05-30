@@ -3,7 +3,7 @@
     "message": "PromptLab Extension"
   },
   "extensionDescription": {
-    "message": "Analyze and improve prompts for ChatGPT, Gemini, and Claude with PromptLab."
+    "message": "Improve prompts for better AI answers in ChatGPT, Gemini, and Claude."
   },
   "inputNotFound": {
     "message": "Could not find the AI input box."

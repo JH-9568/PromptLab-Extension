@@ -3,7 +3,7 @@
     "message": "PromptLab Extension"
   },
   "extensionDescription": {
-    "message": "ChatGPT, Gemini, Claude에서 프롬프트를 분석하고 개선하는 PromptLab 확장 프로그램입니다."
+    "message": "ChatGPT, Gemini, Claude에서 더 좋은 AI 답변을 위한 프롬프트 개선 도구입니다."
   },
   "inputNotFound": {
     "message": "AI 입력창을 찾지 못했습니다."
