@@ -1,15 +1,72 @@
 (() => {
   const SERVER_URL = 'https://promptlab-server.onrender.com';
   const STORAGE_USER_ID_KEY = 'promptlab_user_id';
-  const INPUT_SELECTORS = [
-    '#prompt-textarea',
-    '[data-testid="prompt-textarea"]',
-    'textarea',
-    'div[contenteditable="true"]',
-    '[role="textbox"]',
-    '.ProseMirror'
-  ];
+  const PLATFORM_CONFIG = {
+    chatgpt: {
+      hosts: ['chatgpt.com', 'chat.openai.com'],
+      inputSelectors: [
+        '#prompt-textarea',
+        '[data-testid="prompt-textarea"]',
+        'textarea',
+        'div[contenteditable="true"]',
+        '[role="textbox"]',
+        '.ProseMirror'
+      ],
+      assistantSelectors: ['[data-message-author-role="assistant"]']
+    },
+    gemini: {
+      hosts: ['gemini.google.com'],
+      inputSelectors: [
+        'rich-textarea [contenteditable="true"]',
+        'rich-textarea',
+        '[aria-label*="prompt" i]',
+        '[aria-label*="message" i]',
+        '[aria-label*="Ask" i]',
+        'div[contenteditable="true"]',
+        '[role="textbox"]',
+        'textarea'
+      ],
+      assistantSelectors: [
+        'message-content',
+        '[data-response-index]',
+        '.model-response-text',
+        '.response-container'
+      ]
+    },
+    claude: {
+      hosts: ['claude.ai'],
+      inputSelectors: [
+        '[contenteditable="true"].ProseMirror',
+        '.ProseMirror',
+        '[data-testid*="chat" i] [contenteditable="true"]',
+        'div[contenteditable="true"]',
+        '[role="textbox"]',
+        'textarea'
+      ],
+      assistantSelectors: [
+        '[data-testid="message-content"]',
+        '[data-testid*="message" i]',
+        '.font-claude-message',
+        '.prose'
+      ]
+    }
+  };
+  const DEFAULT_PLATFORM_CONFIG = {
+    inputSelectors: [
+      'textarea',
+      'div[contenteditable="true"]',
+      '[role="textbox"]',
+      '.ProseMirror'
+    ],
+    assistantSelectors: [
+      '[data-message-author-role="assistant"]',
+      'message-content',
+      '[data-testid="message-content"]',
+      '.prose'
+    ]
+  };
   const DEFAULT_TASK_CATEGORY = 'etc';
+  const TARGET_PLATFORM = detectTargetPlatform();
   const CLIENT_LANGUAGE = navigator.languages?.[0] || navigator.language || 'en';
   const i18n = (key, substitutions) => chrome.i18n.getMessage(key, substitutions) || key;
   const UI_TEXT = {
@@ -37,6 +94,19 @@
     keepOriginal: i18n('keepOriginal'),
     ratingTitle: i18n('ratingTitle')
   };
+
+  function detectTargetPlatform() {
+    const host = window.location.hostname;
+    const entry = Object.entries(PLATFORM_CONFIG).find(([, config]) => (
+      config.hosts.some((allowedHost) => host === allowedHost || host.endsWith(`.${allowedHost}`))
+    ));
+
+    return entry?.[0] || 'unknown';
+  }
+
+  function getPlatformConfig() {
+    return PLATFORM_CONFIG[TARGET_PLATFORM] || DEFAULT_PLATFORM_CONFIG;
+  }
 
   let state = {
     isOpen: false,
@@ -86,7 +156,7 @@
   }
 
   function findPromptInput() {
-    for (const selector of INPUT_SELECTORS) {
+    for (const selector of getPlatformConfig().inputSelectors) {
       const candidates = Array.from(document.querySelectorAll(selector)).filter((element) => {
         if (element.closest('#promptlab-root')) return false;
         if (element.disabled || element.readOnly || element.getAttribute('aria-disabled') === 'true') return false;
@@ -105,9 +175,22 @@
   }
 
   function getAssistantMessages() {
-    return Array.from(document.querySelectorAll('[data-message-author-role="assistant"]')).filter((element) => (
-      !element.closest('#promptlab-root') && (element.innerText || element.textContent || '').trim()
-    ));
+    const seen = new Set();
+    const messages = [];
+
+    for (const selector of getPlatformConfig().assistantSelectors) {
+      document.querySelectorAll(selector).forEach((element) => {
+        if (seen.has(element)) return;
+        if (element.closest('#promptlab-root')) return;
+        const text = (element.innerText || element.textContent || '').trim();
+        if (!text) return;
+
+        seen.add(element);
+        messages.push(element);
+      });
+    }
+
+    return messages;
   }
 
   function getAssistantMessageCount() {
@@ -542,6 +625,7 @@
           user_id: state.userId,
           session_id: state.sessionId,
           task_category: state.taskCategory,
+          target_platform: TARGET_PLATFORM,
           provider: state.response.provider,
           improvement_type: state.response.improvement_type,
           improvement_reason: state.response.improvement_reason,
@@ -552,7 +636,8 @@
           guideline_files: state.response.guideline_files,
           retrieved_guidelines: state.response.retrieved_guidelines || {
             category: state.taskCategory,
-            files: state.response.guideline_files || []
+            files: state.response.guideline_files || [],
+            target_platform: TARGET_PLATFORM
           },
           original_prompt_hash: originalHash,
           improved_prompt_hash: improvedHash,

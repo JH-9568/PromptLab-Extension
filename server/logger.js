@@ -37,6 +37,7 @@ function toLogEntry(payload) {
   const retrievedGuidelines = stripped.retrieved_guidelines && typeof stripped.retrieved_guidelines === 'object'
     ? {
         ...stripped.retrieved_guidelines,
+        target_platform: stripped.retrieved_guidelines.target_platform || stripped.target_platform,
         improvement: stripped.retrieved_guidelines.improvement || {
           type: improvementType,
           reason: improvementReason
@@ -48,6 +49,7 @@ function toLogEntry(payload) {
     user_id: stripped.user_id,
     session_id: stripped.session_id,
     task_category: stripped.task_category,
+    target_platform: stripped.target_platform,
     provider: stripped.provider,
     improvement_type: improvementType,
     improvement_reason: improvementReason,
@@ -128,6 +130,7 @@ async function appendSupabaseLog(payload) {
     const {
       improvement_type: improvementType,
       improvement_reason: improvementReason,
+      target_platform: targetPlatform,
       ...legacyEntry
     } = logEntry;
 
@@ -140,7 +143,8 @@ async function appendSupabaseLog(payload) {
     return {
       ...entry,
       improvement_type: improvementType,
-      improvement_reason: improvementReason
+      improvement_reason: improvementReason,
+      target_platform: targetPlatform
     };
   }
 }
@@ -192,6 +196,7 @@ function logsToCsv(logs) {
     'user_id',
     'session_id',
     'task_category',
+    'target_platform',
     'provider',
     'improvement_type',
     'improvement_reason',

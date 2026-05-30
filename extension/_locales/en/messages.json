@@ -3,10 +3,10 @@
     "message": "PromptLab Extension"
   },
   "extensionDescription": {
-    "message": "Analyze and improve prompts on ChatGPT with PromptLab."
+    "message": "Analyze and improve prompts for ChatGPT, Gemini, and Claude with PromptLab."
   },
   "inputNotFound": {
-    "message": "Could not find the ChatGPT input box."
+    "message": "Could not find the AI input box."
   },
   "noImprovedPrompt": {
     "message": "No improved prompt is available to insert."
@@ -73,7 +73,7 @@
     "message": "Current prompt"
   },
   "reloadCurrentPrompt": {
-    "message": "Reload from ChatGPT input"
+    "message": "Reload from AI input"
   },
   "insertImproved": {
     "message": "Insert improved"
@@ -103,7 +103,7 @@
     "message": "Disconnected"
   },
   "popupStep1": {
-    "message": "Write a prompt in ChatGPT."
+    "message": "Write a prompt in ChatGPT, Gemini, or Claude."
   },
   "popupStep2": {
     "message": "Click the PromptLab button."
