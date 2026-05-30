@@ -512,6 +512,8 @@
           session_id: state.sessionId,
           task_category: state.taskCategory,
           provider: state.response.provider,
+          improvement_type: state.response.improvement_type,
+          improvement_reason: state.response.improvement_reason,
           used_improved: state.usedImproved,
           satisfaction_score: satisfactionScore,
           before_analysis: state.response.before_analysis,

@@ -14,6 +14,7 @@ PromptLab은 다음 데이터를 수집할 수 있습니다.
 - 개선된 프롬프트 또는 원본 프롬프트 사용 여부
 - 사용자가 선택한 만족도 점수
 - 개선 전후 프롬프트 분석 메타데이터
+- 프롬프트 개선 유형 및 개선 이유 메타데이터
 - 프롬프트 개선에 사용된 가이드라인 메타데이터
 - 원본 및 개선된 프롬프트의 SHA-256 해시
 - 원본 및 개선된 프롬프트의 글자 수
@@ -75,6 +76,7 @@ PromptLab may collect:
 - Whether the improved prompt or original prompt was used
 - Satisfaction rating selected by the user
 - Before/after prompt analysis metadata
+- Prompt improvement type and improvement reason metadata
 - Guideline metadata used for improvement
 - SHA-256 hashes of the original and improved prompts
 - Character lengths of the original and improved prompts

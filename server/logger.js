@@ -32,17 +32,31 @@ function isSupabaseConfigured() {
 
 function toLogEntry(payload) {
   const stripped = stripFullPrompts(payload);
+  const improvementType = stripped.improvement_type || stripped.retrieved_guidelines?.improvement?.type;
+  const improvementReason = stripped.improvement_reason || stripped.retrieved_guidelines?.improvement?.reason;
+  const retrievedGuidelines = stripped.retrieved_guidelines && typeof stripped.retrieved_guidelines === 'object'
+    ? {
+        ...stripped.retrieved_guidelines,
+        improvement: stripped.retrieved_guidelines.improvement || {
+          type: improvementType,
+          reason: improvementReason
+        }
+      }
+    : stripped.retrieved_guidelines;
+
   return {
     user_id: stripped.user_id,
     session_id: stripped.session_id,
     task_category: stripped.task_category,
     provider: stripped.provider,
+    improvement_type: improvementType,
+    improvement_reason: improvementReason,
     used_improved: stripped.used_improved,
     satisfaction_score: stripped.satisfaction_score,
     before_analysis: stripped.before_analysis,
     after_analysis: stripped.after_analysis,
     guideline_files: stripped.guideline_files,
-    retrieved_guidelines: stripped.retrieved_guidelines,
+    retrieved_guidelines: retrievedGuidelines,
     original_prompt_hash: stripped.original_prompt_hash,
     improved_prompt_hash: stripped.improved_prompt_hash,
     original_prompt_length: stripped.original_prompt_length,
@@ -96,13 +110,39 @@ async function readSupabaseLogs() {
 }
 
 async function appendSupabaseLog(payload) {
-  const [entry] = await requestSupabase(supabaseUrl(), {
-    method: 'POST',
-    headers: supabaseHeaders('return=representation'),
-    body: JSON.stringify(toLogEntry(payload))
-  });
+  const logEntry = toLogEntry(payload);
 
-  return entry;
+  try {
+    const [entry] = await requestSupabase(supabaseUrl(), {
+      method: 'POST',
+      headers: supabaseHeaders('return=representation'),
+      body: JSON.stringify(logEntry)
+    });
+
+    return entry;
+  } catch (error) {
+    if (!/improvement_(type|reason)|schema cache|column/i.test(error.message)) {
+      throw error;
+    }
+
+    const {
+      improvement_type: improvementType,
+      improvement_reason: improvementReason,
+      ...legacyEntry
+    } = logEntry;
+
+    const [entry] = await requestSupabase(supabaseUrl(), {
+      method: 'POST',
+      headers: supabaseHeaders('return=representation'),
+      body: JSON.stringify(legacyEntry)
+    });
+
+    return {
+      ...entry,
+      improvement_type: improvementType,
+      improvement_reason: improvementReason
+    };
+  }
 }
 
 async function readLogs() {
@@ -131,7 +171,7 @@ async function appendLog(payload) {
   const entry = {
     id: crypto.randomUUID(),
     created_at: new Date().toISOString(),
-    ...stripFullPrompts(payload)
+    ...toLogEntry(payload)
   };
 
   logs.push(entry);
@@ -153,6 +193,8 @@ function logsToCsv(logs) {
     'session_id',
     'task_category',
     'provider',
+    'improvement_type',
+    'improvement_reason',
     'used_improved',
     'satisfaction_score',
     'original_prompt_hash',

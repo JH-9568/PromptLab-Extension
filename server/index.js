@@ -80,7 +80,8 @@ app.post('/api/improve', async (req, res, next) => {
     const generation = await generateImprovedPrompt({
       originalPrompt,
       taskCategory: normalizedCategory,
-      clientLanguage
+      clientLanguage,
+      guidelineContent: guidelines.content
     });
     const beforeAnalysis = generation.before_analysis || analyzePrompt(originalPrompt);
     const afterAnalysis = generation.after_analysis || analyzePrompt(generation.improved_prompt);
@@ -92,9 +93,15 @@ app.post('/api/improve', async (req, res, next) => {
       guideline_files: guidelines.files,
       retrieved_guidelines: {
         category: normalizedCategory,
-        files: guidelines.files
+        files: guidelines.files,
+        improvement: {
+          type: generation.improvement_type,
+          reason: generation.improvement_reason
+        }
       },
       improved_prompt: generation.improved_prompt,
+      improvement_type: generation.improvement_type,
+      improvement_reason: generation.improvement_reason,
       provider: generation.provider,
       fallback_reason: generation.fallback_reason,
       before_analysis: beforeAnalysis,
