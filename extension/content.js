@@ -66,7 +66,7 @@
     ]
   };
   const DEFAULT_TASK_CATEGORY = 'etc';
-  const ANSWER_STABLE_DELAY_MS = 4500;
+  const ANSWER_STABLE_DELAY_MS = 2000;
   const TARGET_PLATFORM = detectTargetPlatform();
   const CLIENT_LANGUAGE = navigator.languages?.[0] || navigator.language || 'en';
   const i18n = (key, substitutions) => chrome.i18n.getMessage(key, substitutions) || key;
