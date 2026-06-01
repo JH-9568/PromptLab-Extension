@@ -6,6 +6,7 @@
   "scripts": {
     "start": "node index.js",
     "dev": "nodemon --ignore logs index.js",
+    "test:analyzer": "node scripts/testPromptAnalyzer.js",
     "test:quality": "node scripts/testPromptQuality.js"
   },
   "keywords": [

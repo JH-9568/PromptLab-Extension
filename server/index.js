@@ -51,14 +51,6 @@ function requireString(value, fieldName) {
   return null;
 }
 
-function hideSpecificityScoreForClient(analysis) {
-  if (!analysis || typeof analysis !== 'object') return analysis;
-  return {
-    ...analysis,
-    specificity_score: ''
-  };
-}
-
 app.get('/health', (req, res) => {
   res.json({ ok: true });
 });
@@ -116,8 +108,8 @@ app.post('/api/improve', async (req, res, next) => {
       improvement_reason: generation.improvement_reason,
       provider: generation.provider,
       fallback_reason: generation.fallback_reason,
-      before_analysis: hideSpecificityScoreForClient(beforeAnalysis),
-      after_analysis: hideSpecificityScoreForClient(afterAnalysis)
+      before_analysis: beforeAnalysis,
+      after_analysis: afterAnalysis
     });
   } catch (error) {
     return next(error);

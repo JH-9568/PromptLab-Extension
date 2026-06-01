@@ -325,7 +325,7 @@ function isGenerallyAnswerablePrompt(value) {
 
 function hasClarificationFirstRewrite(value) {
   const text = String(value || '').trim();
-  return /답변하기\s*전|먼저\s*(사용자|질문|확인|요청)|사용자에게\s*(물어|질문|요청)|정보를\s*(요청|확인)|구체적인\s*정보를\s*(요청|물어)|알려\s*주시면|제공해\s*주시면|ask\s+the\s+user|ask\s+me|before\s+answering|first\s+ask|request\s+more\s+details|provide\s+more\s+details/i.test(text);
+  return /답변하기\s*전|먼저\s*(사용자|질문|확인|요청)|사용자에게\s*(물어|질문|요청)|정보를\s*(요청|확인|질문)|구체적인\s*정보를\s*(요청|물어|질문)|세부\s*정보를\s*(요청|물어|질문)|추천하려면.*질문|묻는\s*질문|질문을\s*(해|작성|만들)|알려\s*주시면|제공해\s*주시면|ask\s+the\s+user|ask\s+me|before\s+answering|first\s+ask|request\s+more\s+details|provide\s+more\s+details/i.test(text);
 }
 
 function getQualityIssues(originalPrompt, improvedPrompt) {

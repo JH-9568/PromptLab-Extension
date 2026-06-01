@@ -1,6 +1,6 @@
 const GOAL_PATTERNS = [
-  /목표|목적|원해|해줘|주세요|줘|알려줘|알려드릴까요|찾아|보내줘|고쳐|수정|작성|분석|요약|설명|비교|차이|추천|개선|만들|방법|어떻게|뭐가|무엇|어떤\s*부분|제시|제안|설계/i,
-  /\b(goal|objective|want|need|create|write|fix|debug|analyze|summarize|explain|compare|suggest|recommend|design|improve|remove|delete|deduplicate|tips?|how|can|whether)\b/i
+  /목표|목적|원해|해줘|주세요|줘|알려줘|알려드릴까요|찾아|보내줘|고쳐|수정|작성|분석|요약|설명|비교|차이|차이점|추천|선택|적합|개선|만들|방법|어떻게|뭐가\s*나음|뭐가|어떤\s*게\s*나음|무엇|어떤\s*부분|제시|제안|설계/i,
+  /\b(goal|objective|want|need|create|write|fix|debug|analyze|summarize|explain|compare|difference|versus|vs\.?|suggest|recommend|choose|choice|suitable|fit|design|improve|remove|delete|deduplicate|tips?|how|can|whether)\b/i
 ];
 
 const CONTEXT_PATTERNS = [
@@ -9,13 +9,13 @@ const CONTEXT_PATTERNS = [
 ];
 
 const FORMAT_PATTERNS = [
-  /형식|포맷|표\s*형태|목록으로|불릿|단계별|번호로|문단으로|json|markdown|코드블록|섹션으로/i,
-  /\b(format|table|list|bullet|step-by-step|json|markdown|section)\b/i
+  /형식|포맷|표\s*형태|목록으로|불릿|단계별|번호로|문단으로|항목별|장단점|차이점|용도별|적합한\s*용도|json|markdown|코드블록|섹션으로/i,
+  /\b(format|table|list|bullet|step-by-step|pros?\s+and\s+cons?|use cases?|by use case|json|markdown|section)\b/i
 ];
 
 const CONSTRAINT_PATTERNS = [
-  /제약|조건|반드시|하지 마|제외|길이|분량|톤|마감|간결하게|자세히|한국어로|영어로|이해할 수 있게|실용적|실행\s*가능|우선순위|보안|확장성/i,
-  /\b(constraint|must|avoid|exclude|limit|tone|deadline|concise|briefly|practical|feasible|priority|secure|security|scalable|scalability|in korean|in english)\b/i
+  /제약|조건|반드시|하지 마|제외|길이|분량|톤|마감|간결하게|간단히|자세히|한국어로|영어로|이해할 수 있게|실용적|실행\s*가능|우선\s*순위|우선으로|정확도|개발\s*생산성|생산성|비용|가격|사용량|품질|기준|관점|각\s*(\d+|[한두세네다섯여섯일곱여덟아홉열])\s*항목\s*이내|보안|확장성/i,
+  /\b(constraint|must|avoid|exclude|limit|tone|deadline|concise|briefly|accuracy|productivity|cost|price|usage|quality|criteria|criterion|perspective|practical|feasible|priority|secure|security|scalable|scalability|in korean|in english)\b/i
 ];
 
 const REFERENCE_PATTERNS = [
