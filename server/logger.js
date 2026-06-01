@@ -5,6 +5,13 @@ const path = require('path');
 const LOG_DIR = path.join(__dirname, 'logs');
 const LOG_FILE = path.join(LOG_DIR, 'prompt_sessions.json');
 const SUPABASE_TABLE = 'prompt_sessions';
+const ANALYSIS_KEYS = [
+  'has_goal',
+  'has_context',
+  'has_format',
+  'has_constraint',
+  'has_reference'
+];
 
 function hashText(value = '') {
   return crypto.createHash('sha256').update(String(value)).digest('hex');
@@ -24,6 +31,19 @@ function stripFullPrompts(payload) {
     original_prompt_length: originalPrompt ? String(originalPrompt).length : rest.original_prompt_length,
     improved_prompt_length: improvedPrompt ? String(improvedPrompt).length : rest.improved_prompt_length
   };
+}
+
+function normalizeLoggedAnalysis(analysis) {
+  if (!analysis || typeof analysis !== 'object') return analysis;
+
+  const normalized = { ...analysis };
+  const score = Number(normalized.specificity_score);
+
+  normalized.specificity_score = Number.isFinite(score)
+    ? score
+    : ANALYSIS_KEYS.filter((key) => Boolean(normalized[key])).length * 20;
+
+  return normalized;
 }
 
 function isSupabaseConfigured() {
@@ -55,8 +75,8 @@ function toLogEntry(payload) {
     improvement_reason: improvementReason,
     used_improved: stripped.used_improved,
     satisfaction_score: stripped.satisfaction_score,
-    before_analysis: stripped.before_analysis,
-    after_analysis: stripped.after_analysis,
+    before_analysis: normalizeLoggedAnalysis(stripped.before_analysis),
+    after_analysis: normalizeLoggedAnalysis(stripped.after_analysis),
     guideline_files: stripped.guideline_files,
     retrieved_guidelines: retrievedGuidelines,
     original_prompt_hash: stripped.original_prompt_hash,
