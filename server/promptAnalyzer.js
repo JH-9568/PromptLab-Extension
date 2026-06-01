@@ -1,6 +1,6 @@
 const GOAL_PATTERNS = [
-  /목표|목적|원해|해줘|줘|알려줘|찾아|보내줘|고쳐|수정|작성|분석|요약|설명|비교|추천|개선|만들|방법|어떻게|뭐가|무엇/i,
-  /\b(goal|objective|want|need|create|write|fix|debug|analyze|summarize|explain|compare|improve)\b/i
+  /목표|목적|원해|해줘|줘|알려줘|알려드릴까요|찾아|보내줘|고쳐|수정|작성|분석|요약|설명|비교|추천|개선|만들|방법|어떻게|뭐가|무엇|어떤\s*부분/i,
+  /\b(goal|objective|want|need|create|write|fix|debug|analyze|summarize|explain|compare|improve|remove|delete|deduplicate)\b/i
 ];
 
 const CONTEXT_PATTERNS = [
@@ -9,18 +9,18 @@ const CONTEXT_PATTERNS = [
 ];
 
 const FORMAT_PATTERNS = [
-  /형식|포맷|표|목록|불릿|단계|단계별|번호|문단|요약|json|markdown|코드블록|섹션/i,
-  /\b(format|table|list|bullet|step|json|markdown|csv|section)\b/i
+  /형식|포맷|표\s*형태|목록으로|불릿|단계별|번호로|문단으로|json|markdown|코드블록|섹션으로/i,
+  /\b(format|table|list|bullet|step-by-step|json|markdown|section)\b/i
 ];
 
 const CONSTRAINT_PATTERNS = [
-  /제약|조건|반드시|하지 마|포함|제외|길이|분량|톤|언어|마감|쉽게|간결|자세히|구체적|실용적|한국어|이해할 수 있게/i,
-  /\b(constraint|must|should|avoid|include|exclude|limit|tone|language|deadline)\b/i
+  /제약|조건|반드시|하지 마|제외|길이|분량|톤|마감|간결하게|자세히|한국어로|영어로|이해할 수 있게/i,
+  /\b(constraint|must|avoid|exclude|limit|tone|deadline|concise|briefly|in korean|in english)\b/i
 ];
 
 const REFERENCE_PATTERNS = [
-  /참고|예시|사례|샘플|기준|첨부|아래|위 내용|링크|문서|출처|근거|자료/i,
-  /\b(reference|example|sample|attached|below|above|link|doc|source)\b/i
+  /참고\s*자료|첨부|아래\s*내용|위\s*내용|아래\s*데이터|위\s*데이터|링크|출처|근거|파일\s*내용/i,
+  /\b(reference material|attached|below|above|link|source text|source material|evidence)\b/i
 ];
 
 function matchesAny(prompt, patterns) {

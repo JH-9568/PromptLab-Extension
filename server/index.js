@@ -62,7 +62,8 @@ app.post('/api/improve', async (req, res, next) => {
       session_id: sessionId,
       original_prompt: originalPrompt,
       task_category: taskCategory = 'general',
-      client_language: clientLanguage = ''
+      client_language: clientLanguage = '',
+      attachment_context: attachmentContext = {}
     } = req.body || {};
 
     const validationErrors = [
@@ -81,7 +82,8 @@ app.post('/api/improve', async (req, res, next) => {
       originalPrompt,
       taskCategory: normalizedCategory,
       clientLanguage,
-      guidelineContent: guidelines.content
+      guidelineContent: guidelines.content,
+      attachmentContext
     });
     const beforeAnalysis = generation.before_analysis || analyzePrompt(originalPrompt);
     const afterAnalysis = generation.after_analysis || analyzePrompt(generation.improved_prompt);
@@ -97,8 +99,10 @@ app.post('/api/improve', async (req, res, next) => {
         improvement: {
           type: generation.improvement_type,
           reason: generation.improvement_reason
-        }
+        },
+        attachment_context: generation.attachment_context
       },
+      attachment_context: generation.attachment_context,
       improved_prompt: generation.improved_prompt,
       improvement_type: generation.improvement_type,
       improvement_reason: generation.improvement_reason,

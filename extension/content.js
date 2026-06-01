@@ -248,6 +248,66 @@
     return (input.innerText || input.textContent || '').trim();
   }
 
+  function getPromptComposer(input) {
+    if (!input) return document.body;
+    return input.closest('form, [role="form"], main, [data-testid*="composer" i], [class*="composer" i]')
+      || input.parentElement
+      || document.body;
+  }
+
+  function isVisibleElement(element) {
+    if (!element || element.closest('#promptlab-root')) return false;
+    const rect = element.getBoundingClientRect();
+    const style = window.getComputedStyle(element);
+    return rect.width > 0 && rect.height > 0 && style.visibility !== 'hidden' && style.display !== 'none';
+  }
+
+  function looksLikeAttachmentElement(element) {
+    const signature = [
+      element.getAttribute('data-testid'),
+      element.getAttribute('aria-label'),
+      element.getAttribute('title'),
+      element.className,
+      element.innerText || element.textContent
+    ].join(' ').toLowerCase();
+
+    if (/attach( file|ment)?|파일 첨부|첨부하기|upload/.test(signature)
+      && !/remove|delete|삭제|uploaded|thumbnail|preview/.test(signature)) {
+      return false;
+    }
+
+    return /file-thumbnail|file-preview|attachment-preview|uploaded-file|data-file-id/.test(signature)
+      || /(remove|delete|삭제).*(file|attachment|첨부|파일)/.test(signature)
+      || /\.(pdf|docx?|xlsx?|pptx?|csv|txt|md|json|png|jpe?g|webp)\b/i.test(signature)
+      || element.matches('img[src^="blob:"], [data-file-id], [data-testid*="file-thumbnail" i], [data-testid*="attachment" i]');
+  }
+
+  function detectAttachmentMetadata() {
+    const input = findPromptInput();
+    const composer = getPromptComposer(input);
+    const selectors = [
+      '[data-testid*="file-thumbnail" i]',
+      '[data-testid*="file-preview" i]',
+      '[data-testid*="attachment" i]',
+      '[data-file-id]',
+      '[aria-label*="remove file" i]',
+      '[aria-label*="delete file" i]',
+      '[aria-label*="첨부" i]',
+      '[class*="attachment" i]',
+      '[class*="file-preview" i]',
+      'img[src^="blob:"]'
+    ];
+    const elements = selectors.flatMap((selector) => Array.from(composer.querySelectorAll(selector)));
+    const uniqueElements = Array.from(new Set(elements))
+      .filter(isVisibleElement)
+      .filter(looksLikeAttachmentElement);
+
+    return {
+      has_attachment: uniqueElements.length > 0,
+      attachment_count: Math.min(uniqueElements.length, 10)
+    };
+  }
+
   function setNativeValue(input, value) {
     const prototype = Object.getPrototypeOf(input);
     const descriptor = Object.getOwnPropertyDescriptor(prototype, 'value');
@@ -575,6 +635,7 @@
   async function analyzePrompt() {
     const prompt = getCurrentPromptDraft();
     const category = DEFAULT_TASK_CATEGORY;
+    const attachmentContext = detectAttachmentMetadata();
 
     if (!prompt) {
       setStatus(UI_TEXT.noPrompt, true);
@@ -609,7 +670,8 @@
           session_id: state.sessionId,
           original_prompt: prompt,
           task_category: category,
-          client_language: CLIENT_LANGUAGE
+          client_language: CLIENT_LANGUAGE,
+          attachment_context: attachmentContext
         })
       });
 
@@ -664,7 +726,8 @@
           retrieved_guidelines: state.response.retrieved_guidelines || {
             category: state.taskCategory,
             files: state.response.guideline_files || [],
-            target_platform: TARGET_PLATFORM
+            target_platform: TARGET_PLATFORM,
+            attachment_context: state.response.attachment_context
           },
           original_prompt_hash: originalHash,
           improved_prompt_hash: improvedHash,

@@ -32,6 +32,10 @@ function sanitizeImprovedPrompt(value) {
 
 function normalizeInstructionVoice(value) {
   return String(value || '')
+    .replace(/알려\s*줄게/g, '알려줘')
+    .replace(/알려줄게/g, '알려줘')
+    .replace(/알려\s*드리겠습니다/g, '알려줘')
+    .replace(/알려드리겠습니다/g, '알려줘')
     .replace(/제공해\s*드리겠습니다/g, '제공해주세요')
     .replace(/제공해\s*드립니다/g, '제공해주세요')
     .replace(/작성해\s*드리겠습니다/g, '작성해주세요')
@@ -40,8 +44,28 @@ function normalizeInstructionVoice(value) {
     .trim();
 }
 
+function removeLanguageLeakage(prompt, originalPrompt) {
+  let result = String(prompt || '').trim();
+
+  if (hasKoreanText(originalPrompt)) {
+    result = result
+      .replace(/\s*If needed,?\s+explain what information would make the answer more specific\.?\s*$/i, '')
+      .replace(/\s*If necessary,?\s+.*$/i, '')
+      .replace(/\s*Ask for more details if needed\.?\s*$/i, '')
+      .trim();
+  }
+
+  return result;
+}
+
 function countWords(value) {
   return String(value || '').trim().split(/\s+/).filter(Boolean).length;
+}
+
+function countKoreanAwareLength(value) {
+  const text = String(value || '').trim();
+  if (!text) return 0;
+  return hasKoreanText(text) ? text.length : countWords(text);
 }
 
 function calculateSpecificityScore(analysis) {
@@ -63,20 +87,38 @@ function normalizePromptAnalysis(value) {
   return analysis;
 }
 
-function mergePromptAnalysis(modelAnalysis, prompt) {
-  const modelResult = normalizePromptAnalysis(modelAnalysis);
-  const localResult = analyzePrompt(prompt);
-  const merged = {};
-
-  for (const key of ANALYSIS_KEYS) {
-    merged[key] = Boolean(modelResult[key] || localResult[key]);
-  }
-
-  merged.specificity_score = calculateSpecificityScore(merged);
-  return merged;
+function hasAttachmentContext(value) {
+  return Boolean(value && typeof value === 'object' && value.has_attachment);
 }
 
-function parseGenerationPayload(content, originalPrompt) {
+function normalizeAttachmentContext(value) {
+  if (!hasAttachmentContext(value)) {
+    return {
+      has_attachment: false,
+      attachment_count: 0
+    };
+  }
+
+  const count = Number.isFinite(Number(value.attachment_count))
+    ? Math.max(1, Math.min(Number(value.attachment_count), 10))
+    : 1;
+
+  return {
+    has_attachment: true,
+    attachment_count: count
+  };
+}
+
+function mergePromptAnalysis(modelAnalysis, prompt, attachmentContext) {
+  const analysis = normalizePromptAnalysis(analyzePrompt(prompt));
+  if (hasAttachmentContext(attachmentContext)) {
+    analysis.has_reference = true;
+    analysis.specificity_score = calculateSpecificityScore(analysis);
+  }
+  return analysis;
+}
+
+function parseGenerationPayload(content, originalPrompt, attachmentContext) {
   const rawContent = String(content || '').trim();
   if (!rawContent) return null;
 
@@ -89,15 +131,19 @@ function parseGenerationPayload(content, originalPrompt) {
   const parsed = JSON.parse(jsonText);
   if (!parsed || typeof parsed !== 'object') return null;
 
-  const improvedPrompt = normalizeInstructionVoice(sanitizeImprovedPrompt(parsed.improved_prompt));
+  const improvedPrompt = removeLanguageLeakage(
+    normalizeInstructionVoice(sanitizeImprovedPrompt(parsed.improved_prompt)),
+    originalPrompt
+  );
   if (!improvedPrompt) return null;
 
   return {
     improved_prompt: improvedPrompt,
-    before_analysis: mergePromptAnalysis(parsed.before_analysis, originalPrompt),
-    after_analysis: mergePromptAnalysis(parsed.after_analysis, improvedPrompt),
+    before_analysis: mergePromptAnalysis(parsed.before_analysis, originalPrompt, attachmentContext),
+    after_analysis: mergePromptAnalysis(parsed.after_analysis, improvedPrompt, attachmentContext),
     improvement_type: normalizeImprovementType(parsed.improvement_type),
     improvement_reason: normalizeImprovementReason(parsed.improvement_reason),
+    attachment_context: normalizeAttachmentContext(attachmentContext),
     provider: 'openai'
   };
 }
@@ -167,16 +213,41 @@ async function createJsonChatCompletion({ client, model, messages }) {
   return client.chat.completions.create(request);
 }
 
-function buildGeneratedResult({ improvedPrompt, originalPrompt, provider, fallbackReason }) {
+async function createCompactChatCompletion({ client, model, messages }) {
+  const request = {
+    model,
+    max_completion_tokens: 400,
+    messages
+  };
+
+  if (isReasoningModel(model)) {
+    request.reasoning_effort = process.env.OPENAI_REASONING_EFFORT || 'low';
+  } else {
+    request.temperature = 0.2;
+  }
+
+  return client.chat.completions.create(request);
+}
+
+function buildGeneratedResult({
+  improvedPrompt,
+  originalPrompt,
+  provider,
+  fallbackReason,
+  attachmentContext,
+  improvementType,
+  improvementReason
+}) {
   const normalizedImprovedPrompt = normalizeInstructionVoice(improvedPrompt);
   return {
     improved_prompt: normalizedImprovedPrompt,
-    before_analysis: analyzePrompt(originalPrompt),
-    after_analysis: analyzePrompt(normalizedImprovedPrompt),
-    improvement_type: isLowInformationPrompt(originalPrompt) ? 'ask_clarifying_question' : 'minimal_cleanup',
-    improvement_reason: isLowInformationPrompt(originalPrompt)
+    before_analysis: mergePromptAnalysis(null, originalPrompt, attachmentContext),
+    after_analysis: mergePromptAnalysis(null, normalizedImprovedPrompt, attachmentContext),
+    improvement_type: improvementType || (isLowInformationPrompt(originalPrompt) ? 'ask_clarifying_question' : 'minimal_cleanup'),
+    improvement_reason: improvementReason || (isLowInformationPrompt(originalPrompt)
       ? '원문 정보가 부족해 필요한 정보를 먼저 묻도록 개선했습니다.'
-      : '서버 fallback으로 원문의 의도를 유지하는 최소 개선을 적용했습니다.',
+      : '서버 fallback으로 원문의 의도를 유지하는 최소 개선을 적용했습니다.'),
+    attachment_context: normalizeAttachmentContext(attachmentContext),
     provider,
     ...(fallbackReason ? { fallback_reason: fallbackReason } : {})
   };
@@ -237,6 +308,16 @@ function isLowInformationPrompt(value) {
     || /^(안녕|안녕하세요|하이|헬로|반가워|반갑습니다)$/.test(compactPrompt);
 }
 
+function isVeryVaguePrompt(value) {
+  const compactPrompt = String(value || '')
+    .trim()
+    .toLowerCase()
+    .replace(/[\s~!?.。,，ㅋㅠㅜㅡ\-_/\\|"'`()[\]{}:;]/g, '');
+
+  return /^(이거|이것|저거|그거)?(알려줘|설명해줘|해줘|정리해줘|요약해줘)$/.test(compactPrompt)
+    || /^(tellme|tellmethis|explainthis|explainit|summarizethis|summarizeit|dothis|help)$/.test(compactPrompt);
+}
+
 function buildRewritePolicy(originalPrompt) {
   const text = String(originalPrompt || '');
   const wordCount = countWords(text);
@@ -244,28 +325,19 @@ function buildRewritePolicy(originalPrompt) {
   const hasExplicitFormat = /단계별|목록|리스트|불릿|번호|섹션|문단|요약|표|테이블|json|markdown|bullet|list|table|step|section/i.test(text);
 
   return [
-    'Preserve the user intent and scope. Improve the prompt; do not answer it.',
+    'Rewrite the user prompt; do not answer it.',
+    'Return only the improved prompt.',
+    'Preserve the original intent and scope.',
     'Treat the five analysis fields as measurement metadata only. They are not a checklist to maximize.',
-    'Keep useful ambiguity when the user is only asking a rough question. Do not over-specify hidden requirements.',
-    'Apply prompt-engineering best practices selectively, not exhaustively. Choose only the one or two improvements that most help this specific prompt.',
-    'Use your judgment. Add role, objective, context, output structure, examples, or constraints only when they are naturally implied by the original request or clearly make the prompt more usable.',
-    'A good rewrite may be more specific than the original, but it must not become a different or larger task.',
-    'Do not try to satisfy every prompt-engineering guideline at once. Avoid piling on role, context, format, constraints, examples, caveats, and success criteria in the same rewrite unless the user asked for that level of detail.',
-    'If the original prompt is already clear, make a small meaningful improvement by adding at most one short directly relevant answer-quality requirement, such as examples, common mistakes, caveats, or actionable tips.',
-    'For learning or explanation requests, simple examples are often useful, but add them only as a short requirement. Do not add a checklist unless the user asks for one.',
-    'When adding answer-quality requirements, append a short phrase or sentence. Do not create a full rubric, nested structure, parenthetical schema, or detailed grading criteria unless requested.',
-    'Do not return a rewrite that only changes wording, grammar, or synonyms.',
-    'Do not invent exact counts, unrelated output formats, arbitrary categories, legal/tax analysis, or implementation detail that the user did not ask for.',
-    'Do not invent user attributes, experience level, role seniority, target company type, industry, product, stack, location, deadline, or background. If these details would help, ask for them or use neutral bracketed placeholders.',
-    'For vague prompts, prefer a rewrite that asks one or two clarifying questions before proceeding. Do not silently fill the missing details with assumptions.',
-    'Do not use a clarification-first rewrite when the original prompt already names a concrete problem, task, or deliverable that can be answered generally. In that case, ask the assistant to state assumptions or mention what details would narrow the answer, then still provide useful general guidance.',
-    'For how-to, possibility, recommendation, explanation, or option-comparison questions, do not make the assistant ask the user for environment details first. Rewrite the prompt so the assistant gives a useful general answer, states assumptions, compares common options, and mentions what extra details would refine the recommendation.',
-    'For those answerable questions, the improved prompt must not include instructions like "ask me first", "before answering ask", "먼저 질문", "먼저 요청", or "먼저 물어". Put optional missing details at the end as "If needed, explain what information would make the answer more specific."',
-    'Do not preview or guess the answer content. You may add generally useful answer-quality requirements, such as practical examples, common mistakes, caveats, or actionable tips, only when they directly fit the original request.',
+    'Make the prompt clearer and easier for an AI assistant to execute.',
+    'Keep it concise. Add only the smallest amount of context, structure, or constraints needed.',
+    'Do not add tools, technologies, categories, examples, counts, audience details, or requirements that the original prompt did not mention.',
+    'If the original prompt asks for tips, methods, explanations, recommendations, or how-to guidance, do not turn it into a clarification-first prompt unless it is impossible to answer generally.',
+    'If the prompt is too vague to improve safely, rewrite it as an instruction for the assistant to ask one concise clarifying question.',
     hasExplicitCount ? 'The user requested a quantity; preserve it.' : 'The user did not request a quantity; do not add one.',
     hasExplicitFormat ? 'The user requested an output format; preserve it.' : 'The user did not request a specific output format; do not force one.',
     wordCount <= 20
-      ? 'For short prompts, keep the rewrite to 1-2 sentences and under about 180 Korean characters or 45 English words. Add at most one new answer-quality requirement. Do not add parenthetical lists, multiple options, or many subtopics.'
+      ? 'For short prompts, keep the rewrite to 1 sentence and under about 120 Korean characters or 30 English words. This is a hard limit. Add at most one new answer-quality requirement. Do not add a colon, parenthetical lists, numbered questions, multiple options, or many subtopics.'
       : 'For detailed prompts, preserve the requested depth and improve clarity, structure, and answer quality where it helps.'
   ].join(' ');
 }
@@ -286,9 +358,95 @@ function buildFallbackPrompt({ originalPrompt, clientLanguage }) {
   return String(originalPrompt || '').trim();
 }
 
-async function generateImprovedPrompt({ originalPrompt, taskCategory, clientLanguage, guidelineContent }) {
+function buildVeryVaguePrompt({ originalPrompt, clientLanguage, attachmentContext }) {
+  const useKorean = hasKoreanText(originalPrompt) || /^ko\b/i.test(normalizeClientLanguage(clientLanguage));
+
+  if (hasAttachmentContext(attachmentContext)) {
+    return useKorean
+      ? '답변하지 말고, 첨부한 자료에서 어떤 부분을 설명하면 되는지 사용자에게 한 문장으로 물어봐.'
+      : 'Do not answer yet; ask the user which part of the attached file they want explained.';
+  }
+
+  return useKorean
+    ? '답변하지 말고, 사용자가 알고 싶은 주제나 내용을 한 문장으로 물어봐.'
+    : 'Do not answer yet; ask the user what topic or content they want explained.';
+}
+
+function shouldCompactShortRewrite(originalPrompt, improvedPrompt) {
+  const originalWordCount = countWords(originalPrompt);
+  if (originalWordCount > 20) return false;
+
+  const originalLength = countKoreanAwareLength(originalPrompt);
+  const improvedLength = countKoreanAwareLength(improvedPrompt);
+  const hardLimit = hasKoreanText(improvedPrompt) ? 80 : 30;
+  const expansionLimit = Math.max(originalLength * 3, hardLimit);
+  const toolListPattern = /excel|google sheets|python|pandas|command[- ]?line|uniq|awk|vba|office add-?in|graph api|power automate|명령줄|도구별|장단점|첫\/마지막|부분\s*키|지원동기|경험기술|성장|자주\s*하는\s*실수|문장\s*예시|항목별/i;
+
+  return improvedLength > expansionLimit || toolListPattern.test(improvedPrompt);
+}
+
+async function compactShortRewrite({ client, model, originalPrompt, improvedPrompt, clientLanguage, attachmentContext }) {
+  const useKorean = hasKoreanText(originalPrompt) || /^ko\b/i.test(normalizeClientLanguage(clientLanguage));
+  const maxInstruction = useKorean
+    ? '80자 이내의 한국어 한 문장'
+    : 'one English sentence under 18 words';
+  const attachmentInstruction = hasAttachmentContext(attachmentContext)
+    ? (useKorean
+        ? '첨부가 감지되었으므로 필요하면 첨부 자료 참조만 짧게 포함하세요.'
+        : 'An attachment is present, so include a short attachment reference only if needed.')
+    : (useKorean
+        ? '첨부가 없으므로 첨부 자료를 언급하지 마세요.'
+        : 'No attachment is present, so do not mention attachments.');
+
+  const response = await createCompactChatCompletion({
+    client,
+    model,
+    messages: [
+      {
+        role: 'system',
+        content: [
+          'You compact over-expanded prompt rewrites.',
+          'Return only the improved prompt, not an answer.',
+          'Preserve the original user intent.',
+          `Write in ${useKorean ? 'Korean' : 'English'}.`,
+          `Keep it to ${maxInstruction}.`,
+          'The compact prompt must still be meaningfully more useful than the original.',
+          'Keep one directly relevant answer-quality requirement when it improves usefulness.',
+          'Do not write in assistant-answer voice. Write as a user instruction to an AI assistant.',
+          'For generally answerable requests, do not ask the user for missing details first.',
+          'Do not turn a how-to request into a yes/no question.',
+          'If the original asks for a method, keep it as a request for a practical method.',
+          'Remove invented tools, methods, categories, examples, tradeoffs, edge cases, and details not present in the original prompt.',
+          'Remove generic meta-instructions about asking for more specificity unless the original prompt asks for them.',
+          attachmentInstruction
+        ].join(' ')
+      },
+      {
+        role: 'user',
+        content: [
+          'Original prompt:',
+          originalPrompt,
+          '',
+          'Over-expanded rewrite:',
+          improvedPrompt,
+          '',
+          'Compact it now.'
+        ].join('\n')
+      }
+    ]
+  });
+
+  const compactPrompt = removeLanguageLeakage(
+    normalizeInstructionVoice(sanitizeImprovedPrompt(response.choices?.[0]?.message?.content)),
+    originalPrompt
+  );
+  return compactPrompt || null;
+}
+
+async function generateImprovedPrompt({ originalPrompt, taskCategory, clientLanguage, guidelineContent, attachmentContext }) {
   const normalizedClientLanguage = normalizeClientLanguage(clientLanguage);
   const trimmedGuidelineContent = trimGuidelineContent(guidelineContent);
+  const normalizedAttachmentContext = normalizeAttachmentContext(attachmentContext);
 
   if (!process.env.OPENAI_API_KEY) {
     if (!shouldAllowOpenAIFallback()) {
@@ -298,6 +456,7 @@ async function generateImprovedPrompt({ originalPrompt, taskCategory, clientLang
     return buildGeneratedResult({
       improvedPrompt: buildFallbackPrompt({ originalPrompt, clientLanguage: normalizedClientLanguage }),
       originalPrompt,
+      attachmentContext: normalizedAttachmentContext,
       provider: 'fallback'
     });
   }
@@ -315,7 +474,7 @@ async function generateImprovedPrompt({ originalPrompt, taskCategory, clientLang
             'You are a prompt editor inside a Chrome extension for ChatGPT.',
             'Your job is to rewrite one user prompt so it is more likely to produce a useful answer.',
             'Do not answer the prompt.',
-            `Target output language: ${getTargetLanguageLabel(normalizedClientLanguage)}.`,
+            `UI language hint: ${getTargetLanguageLabel(normalizedClientLanguage)}. Use this only when the original prompt has no clear language.`,
             buildRewritePolicy(originalPrompt),
             'Task category is only a hint; prioritize the original prompt.',
             'Write the improved prompt as a user instruction addressed to an AI assistant.',
@@ -324,19 +483,22 @@ async function generateImprovedPrompt({ originalPrompt, taskCategory, clientLang
             'Avoid assistant-voice phrases such as "I will", "제가", "드리겠습니다", or "알려주시면".',
             'Choose exactly one improvement_type: minimal_cleanup, clarify_goal, add_context_request, add_output_structure, add_constraints, add_examples_or_references, ask_clarifying_question, already_strong.',
             'Use ask_clarifying_question when the original prompt is too vague and adding invented context would be risky.',
-            'When using ask_clarifying_question, the improved prompt must ask the assistant to request missing details from the user. It must not assign defaults such as beginner, senior, SaaS, no experience, or a specific technology unless the original prompt says so.',
-            'Do not choose ask_clarifying_question for concrete troubleshooting, coding, debugging, comparison, or explanation prompts when the assistant can provide a generally useful answer from the information given.',
+            'When using ask_clarifying_question, the improved prompt must ask the assistant to request only the one or two most important missing details. It must not assign defaults such as beginner, senior, SaaS, no experience, or a specific technology unless the original prompt says so.',
+            'Do not choose ask_clarifying_question for concrete troubleshooting, coding, debugging, file-operation, comparison, or explanation prompts when the assistant can provide a generally useful answer from the information given.',
             'Do not choose ask_clarifying_question for prompts asking "how", "방법", "가능해", "can I", or "is there a way" when the topic is clear. These should usually become clarify_goal, add_output_structure, or add_constraints.',
-            'For example, "지피티한테 워드를 직접 제어하게 하는방법이 있어?" should become a prompt asking for possible automation approaches, tradeoffs, and simple examples, with a final note about what environment details would refine the recommendation. It should not ask the assistant to request details before answering.',
+            'For example, "지피티한테 워드를 직접 제어하게 하는방법이 있어?" should become a short prompt asking for Word automation methods, key tradeoffs, and a simple example without naming specific technologies. It should not ask the assistant to request details before answering.',
             'Use already_strong only when the prompt is already answerable and specific; still return a lightly polished prompt.',
             'Use improvement_reason to explain the main edit for product analytics, not for user-facing persuasion.',
             'Evaluate the original and improved prompts with these boolean fields: has_goal, has_context, has_format, has_constraint, has_reference.',
             'has_goal means a clear task, question, desired result, decision, or problem to solve.',
             'has_context means background, situation, audience, domain, user role, project state, or reason the task matters.',
-            'has_format means an explicit output shape such as list, table, bullets, sections, steps, JSON, Markdown, code, or paragraph style.',
-            'has_constraint means requirements, exclusions, tone, length, language, quality criteria, deadline, feasibility, or decision criteria.',
-            'has_reference means the prompt includes or asks the assistant to include/use examples, source text, links, attachments, evidence, prior content, rubrics, benchmarks, or material to follow.',
-            'Korean analysis hints: "초보자", "입문자", "학생", "개발자", or "대상" indicate context/audience. "단계별", "목록", "표", "문단", "번호로", or "요약" indicate format. "쉽게", "간결하게", "자세히", "한국어로", "실용적인", or "이해할 수 있게" indicate constraints. "예시", "사례", "참고", "자료", "출처", or "근거" indicate reference.',
+            'has_format means an explicit requested output shape such as list, table, bullets, sections, step-by-step format, JSON, Markdown, code block, or paragraph style. File types such as CSV alone do not count as output format.',
+            'has_constraint means actual requirements, exclusions, tone, length, language, deadline, feasibility, or decision criteria. A list of missing details to ask the user does not automatically count as constraints.',
+            'has_reference means the prompt includes or asks the assistant to use source text, links, attachments, evidence, prior content, data, or material to follow. Asking for examples alone does not count as reference.',
+            'Korean analysis hints: "초보자", "입문자", "학생", "개발자", or "대상" indicate context/audience. "단계별", "목록으로", "표 형태", "문단으로", "번호로" indicate format. "간결하게", "자세히", "한국어로", or "이해할 수 있게" indicate constraints. "첨부", "아래 내용", "원문", "출처", or "근거" indicate reference.',
+            normalizedAttachmentContext.has_attachment
+              ? `The UI detected ${normalizedAttachmentContext.attachment_count} attachment(s), but file contents and file names are not available. If the prompt refers to "this", "it", "이거", a document, image, file, summary, analysis, or review, treat that as referring to the attachment. Add a concise attachment-reference phrase in the same language as the original prompt, such as "using the attached file" for English or the natural equivalent in the original language. Do not ask the user to paste, upload, or provide the attached content again. Do not claim to know the contents. Treat has_reference as true.`
+              : 'No attachment was detected by the UI.',
             trimmedGuidelineContent
               ? `Use these product guidelines as background, but do not mechanically apply every guideline:\n${trimmedGuidelineContent}`
               : ''
@@ -346,17 +508,20 @@ async function generateImprovedPrompt({ originalPrompt, taskCategory, clientLang
           role: 'user',
           content: [
             `Task category: ${taskCategory || 'general'}`,
+            normalizedAttachmentContext.has_attachment
+              ? `Attachment context: ${normalizedAttachmentContext.attachment_count} attachment(s) are present. Contents and file names are unavailable.`
+              : 'Attachment context: no attachment detected.',
             '',
             'Original prompt:',
             originalPrompt,
             '',
-            'Rewrite the original prompt only. The rewrite must be meaningfully more useful than the original, not just a synonym or grammar polish. Keep short prompts compact. Do not add unrelated output formats, exact counts, parenthetical option lists, arbitrary examples, or unrelated subtopics.'
+            'Rewrite the original prompt only. The rewrite must be meaningfully more useful than the original, not just a synonym or grammar polish. Keep short prompts compact. Do not add unrelated output formats, exact counts, parenthetical option lists, arbitrary examples, long questionnaires, or unrelated subtopics.'
           ].join('\n')
         }
       ]
     });
 
-    const parsedPayload = parseGenerationPayload(response.choices?.[0]?.message?.content, originalPrompt);
+    const parsedPayload = parseGenerationPayload(response.choices?.[0]?.message?.content, originalPrompt, normalizedAttachmentContext);
     if (parsedPayload) return parsedPayload;
 
     if (!shouldAllowOpenAIFallback()) {
@@ -366,6 +531,7 @@ async function generateImprovedPrompt({ originalPrompt, taskCategory, clientLang
     return buildGeneratedResult({
       improvedPrompt: buildFallbackPrompt({ originalPrompt, clientLanguage: normalizedClientLanguage }),
       originalPrompt,
+      attachmentContext: normalizedAttachmentContext,
       provider: 'fallback',
       fallbackReason: 'invalid_openai_json'
     });
@@ -379,6 +545,7 @@ async function generateImprovedPrompt({ originalPrompt, taskCategory, clientLang
     return buildGeneratedResult({
       improvedPrompt: buildFallbackPrompt({ originalPrompt, clientLanguage: normalizedClientLanguage }),
       originalPrompt,
+      attachmentContext: normalizedAttachmentContext,
       provider: 'fallback',
       fallbackReason: error.code || error.status || 'openai_error'
     });
