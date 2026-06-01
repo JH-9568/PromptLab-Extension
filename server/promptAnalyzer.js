@@ -1,6 +1,6 @@
 const GOAL_PATTERNS = [
   /목표|목적|원해|해줘|줘|알려줘|알려드릴까요|찾아|보내줘|고쳐|수정|작성|분석|요약|설명|비교|추천|개선|만들|방법|어떻게|뭐가|무엇|어떤\s*부분/i,
-  /\b(goal|objective|want|need|create|write|fix|debug|analyze|summarize|explain|compare|improve|remove|delete|deduplicate)\b/i
+  /\b(goal|objective|want|need|create|write|fix|debug|analyze|summarize|explain|compare|improve|remove|delete|deduplicate|tips?|how|can|whether)\b/i
 ];
 
 const CONTEXT_PATTERNS = [

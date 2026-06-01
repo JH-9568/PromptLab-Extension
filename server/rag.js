@@ -331,7 +331,8 @@ function buildRewritePolicy(originalPrompt) {
     'Treat the five analysis fields as measurement metadata only. They are not a checklist to maximize.',
     'Make the prompt clearer and easier for an AI assistant to execute.',
     'Keep it concise. Add only the smallest amount of context, structure, or constraints needed.',
-    'Do not add tools, technologies, categories, examples, counts, audience details, or requirements that the original prompt did not mention.',
+    'Strictly do not add specific tools, technologies, platforms, methods, categories, examples, counts, audience details, edge cases, or requirements that the original prompt did not mention.',
+    'Use generic wording such as "practical method", "useful tips", or "simple example" instead of inventing named tools or detailed subtopics.',
     'If the original prompt asks for tips, methods, explanations, recommendations, or how-to guidance, do not turn it into a clarification-first prompt unless it is impossible to answer generally.',
     'If the prompt is too vague to improve safely, rewrite it as an instruction for the assistant to ask one concise clarifying question.',
     hasExplicitCount ? 'The user requested a quantity; preserve it.' : 'The user did not request a quantity; do not add one.',
@@ -515,7 +516,7 @@ async function generateImprovedPrompt({ originalPrompt, taskCategory, clientLang
             'Original prompt:',
             originalPrompt,
             '',
-            'Rewrite the original prompt only. The rewrite must be meaningfully more useful than the original, not just a synonym or grammar polish. Keep short prompts compact. Do not add unrelated output formats, exact counts, parenthetical option lists, arbitrary examples, long questionnaires, or unrelated subtopics.'
+            'Rewrite the original prompt only. The rewrite must be meaningfully more useful than the original, not just a synonym or grammar polish. Keep short prompts compact. Do not add named tools, named methods, named platforms, exact counts, parenthetical option lists, arbitrary examples, long questionnaires, or unrelated subtopics unless they are already in the original prompt.'
           ].join('\n')
         }
       ]
