@@ -315,7 +315,31 @@ function isVeryVaguePrompt(value) {
     .replace(/[\s~!?.。,，ㅋㅠㅜㅡ\-_/\\|"'`()[\]{}:;]/g, '');
 
   return /^(이거|이것|저거|그거)?(알려줘|설명해줘|해줘|정리해줘|요약해줘)$/.test(compactPrompt)
+    || /^(좋은거|괜찮은거|아무거나|뭐|무엇)(추천해줘|골라줘)$/.test(compactPrompt)
     || /^(tellme|tellmethis|explainthis|explainit|summarizethis|summarizeit|dothis|help)$/.test(compactPrompt);
+}
+
+function isGenerallyAnswerablePrompt(value) {
+  return !isLowInformationPrompt(value) && !isVeryVaguePrompt(value);
+}
+
+function hasClarificationFirstRewrite(value) {
+  const text = String(value || '').trim();
+  return /답변하기\s*전|먼저\s*(사용자|질문|확인|요청)|사용자에게\s*(물어|질문|요청)|정보를\s*(요청|확인)|구체적인\s*정보를\s*(요청|물어)|알려\s*주시면|제공해\s*주시면|ask\s+the\s+user|ask\s+me|before\s+answering|first\s+ask|request\s+more\s+details|provide\s+more\s+details/i.test(text);
+}
+
+function getQualityIssues(originalPrompt, improvedPrompt) {
+  const issues = [];
+
+  if (isGenerallyAnswerablePrompt(originalPrompt) && hasClarificationFirstRewrite(improvedPrompt)) {
+    issues.push('clarification_first_for_answerable_prompt');
+  }
+
+  if (shouldCompactShortRewrite(originalPrompt, improvedPrompt)) {
+    issues.push('over_expanded_short_prompt');
+  }
+
+  return issues;
 }
 
 function buildRewritePolicy(originalPrompt) {
@@ -332,7 +356,8 @@ function buildRewritePolicy(originalPrompt) {
     'Make the prompt clearer and easier for an AI assistant to execute.',
     'Keep it concise. Add only the smallest amount of context, structure, or constraints needed.',
     'Strictly do not add specific tools, technologies, platforms, methods, categories, examples, counts, audience details, edge cases, or requirements that the original prompt did not mention.',
-    'Use generic wording such as "practical method", "useful tips", or "simple example" instead of inventing named tools or detailed subtopics.',
+    'Use generic wording such as "practical method", "useful tips", "useful criteria", or "simple example" instead of inventing named tools or detailed subtopics.',
+    'For recommendation or planning prompts, it is okay to add one generic quality lens such as feasibility, priority, differentiation, expected insight, or execution plan when it directly improves answer usefulness.',
     'If the original prompt asks for tips, methods, explanations, recommendations, or how-to guidance, do not turn it into a clarification-first prompt unless it is impossible to answer generally.',
     'If the prompt is too vague to improve safely, rewrite it as an instruction for the assistant to ask one concise clarifying question.',
     hasExplicitCount ? 'The user requested a quantity; preserve it.' : 'The user did not request a quantity; do not add one.',
@@ -381,7 +406,7 @@ function shouldCompactShortRewrite(originalPrompt, improvedPrompt) {
   const improvedLength = countKoreanAwareLength(improvedPrompt);
   const hardLimit = hasKoreanText(improvedPrompt) ? 80 : 30;
   const expansionLimit = Math.max(originalLength * 3, hardLimit);
-  const toolListPattern = /excel|google sheets|python|pandas|command[- ]?line|uniq|awk|vba|office add-?in|graph api|power automate|명령줄|도구별|장단점|첫\/마지막|부분\s*키|지원동기|경험기술|성장|자주\s*하는\s*실수|문장\s*예시|항목별/i;
+  const toolListPattern = /excel|google sheets|python|pandas|command[- ]?line|uniq|awk|vba|office add-?in|graph api|power automate|명령줄|도구별|장단점|첫\/마지막|부분\s*키|지원동기|경험기술|성장|목표\s*사용자|대상\s*사용자|target\s+users?|자주\s*하는\s*실수|문장\s*예시|항목별/i;
 
   return improvedLength > expansionLimit || toolListPattern.test(improvedPrompt);
 }
@@ -407,6 +432,7 @@ async function compactShortRewrite({ client, model, originalPrompt, improvedProm
         role: 'system',
         content: [
           'You compact over-expanded prompt rewrites.',
+          'You are also a critic that fixes clarification-first rewrites when the original prompt is generally answerable.',
           'Return only the improved prompt, not an answer.',
           'Preserve the original user intent.',
           `Write in ${useKorean ? 'Korean' : 'English'}.`,
@@ -415,6 +441,7 @@ async function compactShortRewrite({ client, model, originalPrompt, improvedProm
           'Keep one directly relevant answer-quality requirement when it improves usefulness.',
           'Do not write in assistant-answer voice. Write as a user instruction to an AI assistant.',
           'For generally answerable requests, do not ask the user for missing details first.',
+          'If the over-expanded rewrite asks for missing details but the original topic is clear, rewrite it into an immediately answerable prompt.',
           'Do not turn a how-to request into a yes/no question.',
           'If the original asks for a method, keep it as a request for a practical method.',
           'Remove invented tools, methods, categories, examples, tradeoffs, edge cases, and details not present in the original prompt.',
@@ -444,10 +471,60 @@ async function compactShortRewrite({ client, model, originalPrompt, improvedProm
   return compactPrompt || null;
 }
 
+async function reviseGeneratedPayloadIfNeeded({
+  client,
+  model,
+  payload,
+  originalPrompt,
+  clientLanguage,
+  attachmentContext
+}) {
+  const qualityIssues = getQualityIssues(originalPrompt, payload.improved_prompt);
+  if (qualityIssues.length === 0) return payload;
+
+  const revisedPrompt = await compactShortRewrite({
+    client,
+    model,
+    originalPrompt,
+    improvedPrompt: payload.improved_prompt,
+    clientLanguage,
+    attachmentContext
+  });
+
+  if (!revisedPrompt) return payload;
+
+  return {
+    ...payload,
+    improved_prompt: revisedPrompt,
+    after_analysis: mergePromptAnalysis(null, revisedPrompt, attachmentContext),
+    improvement_type: payload.improvement_type === 'ask_clarifying_question'
+      ? 'clarify_goal'
+      : payload.improvement_type,
+    improvement_reason: qualityIssues.includes('clarification_first_for_answerable_prompt')
+      ? '2차 검토에서 답변 가능한 요청이 추가 질문으로 바뀌지 않도록 수정했습니다.'
+      : payload.improvement_reason
+  };
+}
+
 async function generateImprovedPrompt({ originalPrompt, taskCategory, clientLanguage, guidelineContent, attachmentContext }) {
   const normalizedClientLanguage = normalizeClientLanguage(clientLanguage);
   const trimmedGuidelineContent = trimGuidelineContent(guidelineContent);
   const normalizedAttachmentContext = normalizeAttachmentContext(attachmentContext);
+
+  if (isVeryVaguePrompt(originalPrompt)) {
+    return buildGeneratedResult({
+      improvedPrompt: buildVeryVaguePrompt({
+        originalPrompt,
+        clientLanguage: normalizedClientLanguage,
+        attachmentContext: normalizedAttachmentContext
+      }),
+      originalPrompt,
+      attachmentContext: normalizedAttachmentContext,
+      provider: 'rule',
+      improvementType: 'ask_clarifying_question',
+      improvementReason: '지시 대상이 불명확해 한 가지 핵심 정보를 먼저 묻도록 개선했습니다.'
+    });
+  }
 
   if (!process.env.OPENAI_API_KEY) {
     if (!shouldAllowOpenAIFallback()) {
@@ -523,7 +600,16 @@ async function generateImprovedPrompt({ originalPrompt, taskCategory, clientLang
     });
 
     const parsedPayload = parseGenerationPayload(response.choices?.[0]?.message?.content, originalPrompt, normalizedAttachmentContext);
-    if (parsedPayload) return parsedPayload;
+    if (parsedPayload) {
+      return reviseGeneratedPayloadIfNeeded({
+        client,
+        model,
+        payload: parsedPayload,
+        originalPrompt,
+        clientLanguage: normalizedClientLanguage,
+        attachmentContext: normalizedAttachmentContext
+      });
+    }
 
     if (!shouldAllowOpenAIFallback()) {
       throw createOpenAIError('OpenAI returned invalid JSON for prompt improvement.', null, 'invalid_openai_json');

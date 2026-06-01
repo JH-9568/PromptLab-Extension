@@ -1,6 +1,6 @@
 const GOAL_PATTERNS = [
-  /목표|목적|원해|해줘|줘|알려줘|알려드릴까요|찾아|보내줘|고쳐|수정|작성|분석|요약|설명|비교|추천|개선|만들|방법|어떻게|뭐가|무엇|어떤\s*부분/i,
-  /\b(goal|objective|want|need|create|write|fix|debug|analyze|summarize|explain|compare|improve|remove|delete|deduplicate|tips?|how|can|whether)\b/i
+  /목표|목적|원해|해줘|주세요|줘|알려줘|알려드릴까요|찾아|보내줘|고쳐|수정|작성|분석|요약|설명|비교|차이|추천|개선|만들|방법|어떻게|뭐가|무엇|어떤\s*부분|제시|제안|설계/i,
+  /\b(goal|objective|want|need|create|write|fix|debug|analyze|summarize|explain|compare|suggest|recommend|design|improve|remove|delete|deduplicate|tips?|how|can|whether)\b/i
 ];
 
 const CONTEXT_PATTERNS = [
@@ -14,8 +14,8 @@ const FORMAT_PATTERNS = [
 ];
 
 const CONSTRAINT_PATTERNS = [
-  /제약|조건|반드시|하지 마|제외|길이|분량|톤|마감|간결하게|자세히|한국어로|영어로|이해할 수 있게/i,
-  /\b(constraint|must|avoid|exclude|limit|tone|deadline|concise|briefly|in korean|in english)\b/i
+  /제약|조건|반드시|하지 마|제외|길이|분량|톤|마감|간결하게|자세히|한국어로|영어로|이해할 수 있게|실용적|실행\s*가능|우선순위|보안|확장성/i,
+  /\b(constraint|must|avoid|exclude|limit|tone|deadline|concise|briefly|practical|feasible|priority|secure|security|scalable|scalability|in korean|in english)\b/i
 ];
 
 const REFERENCE_PATTERNS = [
