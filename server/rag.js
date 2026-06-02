@@ -139,8 +139,8 @@ function parseGenerationPayload(content, originalPrompt, attachmentContext) {
 
   return {
     improved_prompt: improvedPrompt,
-    before_analysis: mergePromptAnalysis(parsed.before_analysis, originalPrompt, attachmentContext),
-    after_analysis: mergePromptAnalysis(parsed.after_analysis, improvedPrompt, attachmentContext),
+    before_analysis: mergePromptAnalysis(null, originalPrompt, attachmentContext),
+    after_analysis: mergePromptAnalysis(null, improvedPrompt, attachmentContext),
     improvement_type: normalizeImprovementType(parsed.improvement_type),
     improvement_reason: normalizeImprovementReason(parsed.improvement_reason),
     attachment_context: normalizeAttachmentContext(attachmentContext),
@@ -152,14 +152,17 @@ function isReasoningModel(model) {
   return /^(gpt-5|o[134])\b/i.test(String(model || ''));
 }
 
-function createPromptImprovementSchema() {
-  const analysisSchema = {
-    type: 'object',
-    additionalProperties: false,
-    properties: Object.fromEntries(ANALYSIS_KEYS.map((key) => [key, { type: 'boolean' }])),
-    required: ANALYSIS_KEYS
-  };
+function getPromptImprovementTokenLimit() {
+  const configuredLimit = Number(process.env.OPENAI_MAX_COMPLETION_TOKENS);
+  return Number.isFinite(configuredLimit) && configuredLimit > 0 ? configuredLimit : 900;
+}
 
+function getPromptImprovementModel() {
+  const model = String(process.env.OPENAI_REWRITE_MODEL || process.env.OPENAI_PROMPT_MODEL || 'gpt-4.1-mini').trim();
+  return model || 'gpt-4.1-mini';
+}
+
+function createPromptImprovementSchema() {
   return {
     type: 'object',
     additionalProperties: false,
@@ -175,16 +178,12 @@ function createPromptImprovementSchema() {
       improvement_reason: {
         type: 'string',
         description: 'One concise reason explaining the most important edit. Keep it under 120 Korean characters or 30 English words.'
-      },
-      before_analysis: analysisSchema,
-      after_analysis: analysisSchema
+      }
     },
     required: [
       'improved_prompt',
       'improvement_type',
-      'improvement_reason',
-      'before_analysis',
-      'after_analysis'
+      'improvement_reason'
     ]
   };
 }
@@ -200,7 +199,7 @@ async function createJsonChatCompletion({ client, model, messages }) {
         schema: createPromptImprovementSchema()
       }
     },
-    max_completion_tokens: 1800,
+    max_completion_tokens: getPromptImprovementTokenLimit(),
     messages
   };
 
@@ -541,7 +540,7 @@ async function generateImprovedPrompt({ originalPrompt, taskCategory, clientLang
 
   try {
     const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
-    const model = process.env.OPENAI_MODEL || 'gpt-4o-mini';
+    const model = getPromptImprovementModel();
     const response = await createJsonChatCompletion({
       client,
       model,
@@ -567,13 +566,6 @@ async function generateImprovedPrompt({ originalPrompt, taskCategory, clientLang
             'For example, "지피티한테 워드를 직접 제어하게 하는방법이 있어?" should become a short prompt asking for Word automation methods, key tradeoffs, and a simple example without naming specific technologies. It should not ask the assistant to request details before answering.',
             'Use already_strong only when the prompt is already answerable and specific; still return a lightly polished prompt.',
             'Use improvement_reason to explain the main edit for product analytics, not for user-facing persuasion.',
-            'Evaluate the original and improved prompts with these boolean fields: has_goal, has_context, has_format, has_constraint, has_reference.',
-            'has_goal means a clear task, question, desired result, decision, or problem to solve.',
-            'has_context means background, situation, audience, domain, user role, project state, or reason the task matters.',
-            'has_format means an explicit requested output shape such as list, table, bullets, sections, step-by-step format, JSON, Markdown, code block, or paragraph style. File types such as CSV alone do not count as output format.',
-            'has_constraint means actual requirements, exclusions, tone, length, language, deadline, feasibility, or decision criteria. A list of missing details to ask the user does not automatically count as constraints.',
-            'has_reference means the prompt includes or asks the assistant to use source text, links, attachments, evidence, prior content, data, or material to follow. Asking for examples alone does not count as reference.',
-            'Korean analysis hints: "초보자", "입문자", "학생", "개발자", or "대상" indicate context/audience. "단계별", "목록으로", "표 형태", "문단으로", "번호로" indicate format. "간결하게", "자세히", "한국어로", or "이해할 수 있게" indicate constraints. "첨부", "아래 내용", "원문", "출처", or "근거" indicate reference.',
             normalizedAttachmentContext.has_attachment
               ? `The UI detected ${normalizedAttachmentContext.attachment_count} attachment(s), but file contents and file names are not available. If the prompt refers to "this", "it", "이거", a document, image, file, summary, analysis, or review, treat that as referring to the attachment. Add a concise attachment-reference phrase in the same language as the original prompt, such as "using the attached file" for English or the natural equivalent in the original language. Do not ask the user to paste, upload, or provide the attached content again. Do not claim to know the contents. Treat has_reference as true.`
               : 'No attachment was detected by the UI.',
