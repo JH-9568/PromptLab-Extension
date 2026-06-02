@@ -7,6 +7,7 @@ const express = require('express');
 
 const { appendLog, logsToCsv, readLogs } = require('./logger');
 const { analyzePrompt } = require('./promptAnalyzer');
+const { scheduleQualityEvaluation, takeQualityEvaluation } = require('./qualityEvaluator');
 const { generateImprovedPrompt } = require('./rag');
 
 const app = express();
@@ -51,6 +52,24 @@ function requireString(value, fieldName) {
   return null;
 }
 
+function mergeEvaluationIntoLogPayload(payload, evaluation) {
+  if (!evaluation) return payload;
+
+  const retrievedGuidelines = payload.retrieved_guidelines && typeof payload.retrieved_guidelines === 'object'
+    ? payload.retrieved_guidelines
+    : {};
+
+  return {
+    ...payload,
+    before_analysis: evaluation.before_analysis || payload.before_analysis,
+    after_analysis: evaluation.after_analysis || payload.after_analysis,
+    retrieved_guidelines: {
+      ...retrievedGuidelines,
+      llm_quality_eval: evaluation.quality_eval
+    }
+  };
+}
+
 app.get('/health', (req, res) => {
   res.json({ ok: true });
 });
@@ -88,7 +107,7 @@ app.post('/api/improve', async (req, res, next) => {
     const beforeAnalysis = generation.before_analysis || analyzePrompt(originalPrompt);
     const afterAnalysis = generation.after_analysis || analyzePrompt(generation.improved_prompt);
 
-    return res.json({
+    const responsePayload = {
       user_id: userId,
       session_id: sessionId,
       task_category: normalizedCategory,
@@ -110,7 +129,17 @@ app.post('/api/improve', async (req, res, next) => {
       fallback_reason: generation.fallback_reason,
       before_analysis: beforeAnalysis,
       after_analysis: afterAnalysis
+    };
+
+    scheduleQualityEvaluation({
+      userId,
+      sessionId,
+      originalPrompt,
+      improvedPrompt: generation.improved_prompt,
+      attachmentContext: generation.attachment_context
     });
+
+    return res.json(responsePayload);
   } catch (error) {
     return next(error);
   }
@@ -118,7 +147,12 @@ app.post('/api/improve', async (req, res, next) => {
 
 app.post('/api/log', async (req, res, next) => {
   try {
-    const entry = await appendLog(req.body || {});
+    const payload = req.body || {};
+    const evaluation = await takeQualityEvaluation({
+      userId: payload.user_id,
+      sessionId: payload.session_id
+    });
+    const entry = await appendLog(mergeEvaluationIntoLogPayload(payload, evaluation));
     return res.status(201).json({ ok: true, log: entry });
   } catch (error) {
     return next(error);
