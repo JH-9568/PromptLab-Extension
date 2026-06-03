@@ -412,12 +412,60 @@ function isGrowthPrompt(value) {
   return /사용자\s*수|유저\s*수|늘리|성장|확보|획득|users?|growth|grow|increase|acquire|acquisition/i.test(String(value || ''));
 }
 
+function isWebServiceIdeaPrompt(value) {
+  return /웹\s*(서비스|사이트)|웹서비스|웹사이트|web\s*(service|site)/i.test(String(value || ''))
+    && /아이디어|추천|제안|ideas?|recommend|suggest|proposal/i.test(String(value || ''));
+}
+
+function hasWebServiceIdeaLens(value) {
+  const text = String(value || '');
+  const lensPatterns = [
+    /대상\s*사용자|타깃|타겟|고객|사용자층|target\s+user|audience|customer/i,
+    /핵심\s*기능|주요\s*기능|core\s+feature|key\s+feature/i,
+    /차별화|경쟁|독창|differentiation|unique|competitive/i,
+    /수익화|비즈니스\s*모델|moneti[sz]ation|business\s+model/i,
+    /실행\s*난이도|난이도|구현\s*난이도|implementation\s+difficulty|difficulty/i
+  ];
+
+  return lensPatterns.filter((pattern) => pattern.test(text)).length >= 4;
+}
+
 function hasExplicitQuantity(value) {
   return /\d+\s*(개|가지|명|문장|단계|항목|items?|steps?|examples?|ideas?|ways?|methods?)|[한두세네다섯여섯일곱여덟아홉열]\s*(개|가지|문장|단계|항목)/i.test(String(value || ''));
 }
 
 function hasInventedExactCount(originalPrompt, improvedPrompt) {
   return !hasExplicitQuantity(originalPrompt) && hasExplicitQuantity(improvedPrompt);
+}
+
+function normalizeAppendComparison(value) {
+  return trimTerminalPunctuation(value)
+    .replace(/\s+/g, '')
+    .toLowerCase();
+}
+
+function hasAppendStyleRewrite(originalPrompt, improvedPrompt) {
+  const original = String(originalPrompt || '').trim();
+  const improved = String(improvedPrompt || '').trim();
+  if (original.length < 12 || improved.length <= original.length) return false;
+
+  const normalizedOriginal = normalizeAppendComparison(original);
+  const normalizedImproved = normalizeAppendComparison(improved);
+  const suffixPattern = /^[.!?。！？]\s*(각|아이디어별|전략별|방법별|분석\s*방법별|목표별|전체\s*흐름|핵심|구체적|예상|기대|실행|주의|장단점|비교|선정\s*기준|판단\s*기준)/i;
+
+  if (normalizedImproved.startsWith(normalizedOriginal)) {
+    const suffix = improved.slice(Math.min(original.length, improved.length)).trim();
+    return suffixPattern.test(suffix);
+  }
+
+  const firstSentence = improved.split(/[.!?。！？]/)[0] || improved;
+  const normalizedOriginalStem = normalizeAppendComparison(stripKoreanRequestEnding(original));
+  const normalizedFirstSentence = normalizeAppendComparison(firstSentence);
+  const suffixAfterFirstSentence = improved.slice(firstSentence.length).trim();
+
+  return normalizedOriginalStem.length >= 12
+    && normalizedFirstSentence.startsWith(normalizedOriginalStem)
+    && suffixPattern.test(suffixAfterFirstSentence);
 }
 
 function isUnderImprovedRewrite(originalPrompt, improvedPrompt) {
@@ -463,6 +511,14 @@ function getQualityIssues(originalPrompt, improvedPrompt) {
 
   if (hasInventedExactCount(originalPrompt, improvedPrompt)) {
     issues.push('invented_exact_count');
+  }
+
+  if (hasAppendStyleRewrite(originalPrompt, improvedPrompt)) {
+    issues.push('append_style_rewrite');
+  }
+
+  if (isWebServiceIdeaPrompt(originalPrompt) && !hasWebServiceIdeaLens(improvedPrompt)) {
+    issues.push('weak_web_service_idea_rewrite');
   }
 
   if (isUnderImprovedRewrite(originalPrompt, improvedPrompt)) {
@@ -580,6 +636,7 @@ function buildKoreanAnalysisRewrite(basePrompt) {
   const subject = stripKoreanRequestEnding(basePrompt)
     .replace(/어떤\s*분석을\s*하면\s*좋을까.*$/i, '')
     .replace(/하려고\s*하는데.*$/i, '')
+    .replace(/\s*(을|를)\s*분석$/i, '')
     .trim();
 
   if (subject) {
@@ -587,6 +644,33 @@ function buildKoreanAnalysisRewrite(basePrompt) {
   }
 
   return `${basePrompt}. 분석 방법별 목적, 필요한 데이터, 기대 인사이트, 우선순위를 함께 설명해줘.`;
+}
+
+function buildKoreanIdeaRewrite(basePrompt, requirementText) {
+  const subject = stripKoreanRequestEnding(basePrompt)
+    .replace(/\s*(을|를)\s*$/g, '')
+    .replace(/예술적\s*요소를\s*활용해\s*해결할\s*수\s*있는\s*실용적인\s*아이디어/i, '예술적 요소로 완화하는 아이디어')
+    .replace(/해결할\s*수\s*있는\s*실용적인\s*아이디어/i, '완화하는 아이디어')
+    .trim();
+
+  if (!subject) {
+    return `아이디어를 추천해줘. ${requirementText}`;
+  }
+
+  return `${subject}를 추천해줘. ${requirementText}`;
+}
+
+function buildKoreanHowToRewrite(basePrompt) {
+  const task = stripKoreanRequestEnding(basePrompt)
+    .replace(/처음\s*구현하는\s*입장에서\s*어떤\s*구조로\s*설계하는\s*게\s*좋은지/i, '처음 구현할 때 참고할 설계 구조를')
+    .replace(/어떤\s*구조로\s*설계하는\s*게\s*좋은지/i, '설계 구조를')
+    .trim();
+
+  if (!task) {
+    return '실행 방법을 알려줘. 전체 흐름, 핵심 단계, 주의할 점, 간단한 예시를 함께 설명해줘.';
+  }
+
+  return `${task} 알려줘. 전체 흐름, 핵심 단계, 주의할 점, 간단한 예시를 함께 설명해줘.`;
 }
 
 function buildMeaningfulFallbackRewrite(originalPrompt, clientLanguage) {
@@ -609,11 +693,17 @@ function buildMeaningfulFallbackRewrite(originalPrompt, clientLanguage) {
     }
 
     if (/아이디어|추천|제안/i.test(basePrompt) && /해결|문제|개선|줄이|늘리|성장/i.test(basePrompt)) {
-      return `${basePrompt}. 아이디어별 작동 원리, 실행 방식, 기대 효과, 현실적 한계를 함께 설명해줘.`;
+      return buildKoreanIdeaRewrite(
+        basePrompt,
+        '아이디어별 작동 원리, 실행 방식, 기대 효과, 현실적 한계를 함께 설명해줘.'
+      );
     }
 
     if (/아이디어|추천|제안/i.test(basePrompt)) {
-      return `${basePrompt}. 선정 기준, 추천 이유, 간단한 예시, 실행 난이도를 함께 설명해줘.`;
+      return buildKoreanIdeaRewrite(
+        basePrompt,
+        '선정 기준, 추천 이유, 간단한 예시, 실행 난이도를 함께 설명해줘.'
+      );
     }
 
     if (/비교|차이|중\s*뭐|뭐가\s*나|어떤\s*게\s*나|선택/i.test(basePrompt)) {
@@ -621,10 +711,10 @@ function buildMeaningfulFallbackRewrite(originalPrompt, clientLanguage) {
     }
 
     if (/방법|어떻게|구현|설계|붙이|만들|작성|해결/i.test(basePrompt)) {
-      return `${basePrompt}. 전체 흐름, 핵심 단계, 주의할 점, 간단한 예시를 함께 설명해줘.`;
+      return buildKoreanHowToRewrite(basePrompt);
     }
 
-    return `${basePrompt}. 핵심 기준, 이유, 예시, 주의할 점을 함께 설명해줘.`;
+    return `${stripKoreanRequestEnding(basePrompt)}에 대해 핵심 기준, 이유, 예시, 주의할 점을 함께 설명해줘.`;
   }
 
   if (/\b(web\s+service|service)\b/i.test(basePrompt) && /\b(ideas?|recommend|suggest|proposal)\b/i.test(basePrompt)) {
@@ -682,7 +772,9 @@ function shouldCompactShortRewrite(originalPrompt, improvedPrompt) {
 
 async function compactShortRewrite({ client, model, originalPrompt, improvedPrompt, clientLanguage, attachmentContext, qualityIssues = [] }) {
   const useKorean = hasKoreanText(originalPrompt) || /^ko\b/i.test(normalizeClientLanguage(clientLanguage));
-  const isWeakRewrite = qualityIssues.includes('under_improved_rewrite');
+  const isWeakRewrite = qualityIssues.includes('under_improved_rewrite')
+    || qualityIssues.includes('append_style_rewrite')
+    || qualityIssues.includes('weak_web_service_idea_rewrite');
   const maxInstruction = useKorean
     ? (isWeakRewrite ? '220자 이내의 한국어 1~2문장' : '120자 이내의 한국어 한 문장')
     : (isWeakRewrite ? '1 or 2 English sentences under 55 words' : 'one English sentence under 30 words');
@@ -715,6 +807,12 @@ async function compactShortRewrite({ client, model, originalPrompt, improvedProm
           isWeakRewrite
             ? 'The current rewrite is too similar to the original. Do not merely add generic adjectives. Add two to four aligned answer requirements such as examples, constraints, output structure, evaluation criteria, execution approach, expected effect, priority, tradeoff, limitation, or decision basis.'
             : 'Remove unnecessary expansion while preserving one useful answer-quality requirement.',
+          qualityIssues.includes('append_style_rewrite')
+            ? 'The current rewrite reads like the original sentence plus appended requirements. Rewrite it as a natural integrated prompt instead.'
+            : '',
+          qualityIssues.includes('weak_web_service_idea_rewrite')
+            ? 'For web service idea prompts, include target users, core features, differentiation, monetization potential, and implementation difficulty when they fit the original request.'
+            : '',
           qualityIssues.includes('invented_exact_count')
             ? 'The current rewrite added an arbitrary exact quantity. Remove the exact quantity unless the original prompt requested one.'
             : '',
@@ -775,6 +873,8 @@ async function reviseGeneratedPayloadIfNeeded({
   if (!revisedPrompt) return payload;
 
   const shouldUseMeaningfulFallback = (qualityIssues.includes('under_improved_rewrite') && isUnderImprovedRewrite(originalPrompt, revisedPrompt))
+    || hasAppendStyleRewrite(originalPrompt, revisedPrompt)
+    || (isWebServiceIdeaPrompt(originalPrompt) && !hasWebServiceIdeaLens(revisedPrompt))
     || hasInventedExactCount(originalPrompt, revisedPrompt);
 
   const finalRevisedPrompt = shouldUseMeaningfulFallback
@@ -789,13 +889,20 @@ async function reviseGeneratedPayloadIfNeeded({
     after_analysis: mergePromptAnalysis(null, finalRevisedPrompt, attachmentContext),
     improvement_type: payload.improvement_type === 'ask_clarifying_question'
       ? 'clarify_goal'
-      : qualityIssues.includes('under_improved_rewrite') || qualityIssues.includes('invented_exact_count')
+      : qualityIssues.includes('under_improved_rewrite')
+        || qualityIssues.includes('invented_exact_count')
+        || qualityIssues.includes('append_style_rewrite')
+        || qualityIssues.includes('weak_web_service_idea_rewrite')
         ? 'add_output_structure'
       : payload.improvement_type,
     improvement_reason: qualityIssues.includes('clarification_first_for_answerable_prompt')
       ? '2차 검토에서 답변 가능한 요청이 추가 질문으로 바뀌지 않도록 수정했습니다.'
       : qualityIssues.includes('invented_exact_count')
         ? '2차 검토에서 임의 개수를 제거하고 답변 구조를 보강했습니다.'
+      : qualityIssues.includes('append_style_rewrite')
+        ? '2차 검토에서 덧붙이기식 문장을 자연스러운 개선 프롬프트로 재작성했습니다.'
+      : qualityIssues.includes('weak_web_service_idea_rewrite')
+        ? '2차 검토에서 웹서비스 아이디어 답변에 필요한 평가 축을 보강했습니다.'
       : qualityIssues.includes('under_improved_rewrite')
         ? '2차 검토에서 단순 표현 수정이 아니라 답변 기준이나 실행 관점을 보강했습니다.'
       : payload.improvement_reason

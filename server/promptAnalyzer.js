@@ -9,12 +9,12 @@ const CONTEXT_PATTERNS = [
 ];
 
 const FORMAT_PATTERNS = [
-  /형식|포맷|표\s*형태|목록으로|불릿|단계별|번호로|문단으로|항목별|아이디어별|전략별|방법별|분석\s*방법별|목표별|기준별|장단점|차이점|비교|용도별|적합한\s*용도|함께\s*(설명|비교|정리|제시)|json|markdown|코드블록|섹션으로/i,
-  /\b(format|table|list|bullet|step-by-step|by idea|by strategy|by method|by goal|by criteria|pros?\s+and\s+cons?|compare|comparison|use cases?|by use case|json|markdown|section)\b/i
+  /형식|포맷|표\s*형태|목록으로|불릿|단계별|번호로|문단으로|항목별|아이디어별|전략별|방법별|분석\s*방법별|목표별|기준별|장단점|차이점|비교|용도별|적합한\s*용도|함께\s*(설명|비교|정리|제시)|평가해?\s*(설명|정리|제시)|측면에서\s*평가|json|markdown|코드블록|섹션으로/i,
+  /\b(format|table|list|bullet|step-by-step|by idea|by strategy|by method|by goal|by criteria|pros?\s+and\s+cons?|compare|comparison|evaluate|evaluation|use cases?|by use case|json|markdown|section)\b/i
 ];
 
 const CONSTRAINT_PATTERNS = [
-  /제약|조건|반드시|하지 마|제외|길이|분량|톤|마감|간결하게|간단히|자세히|한국어로|영어로|이해할 수 있게|실용적|실행\s*(가능|난이도|계획|방법|방식)|난이도|우선\s*순위|우선으로|정확도|개발\s*생산성|생산성|비용|가격|사용량|품질|기준|관점|핵심\s*기능|차별화|수익화|예상\s*효과|기대\s*효과|효과|성과|한계|리스크|위험|주의|고려\s*사항|지표|측정|성공\s*기준|각\s*(\d+|[한두세네다섯여섯일곱여덟아홉열])\s*항목\s*이내|보안|확장성/i,
+  /제약|조건|반드시|하지 마|제외|길이|분량|톤|마감|간결하게|간단히|자세히|한국어로|영어로|이해할 수 있게|실용적|실행\s*(가능|난이도|계획|방법|방식)|난이도|우선\s*순위|우선으로|정확도|개발\s*생산성|생산성|비용|가격|사용량|품질|기준|관점|평가|지속\s*가능성|핵심\s*기능|차별화|수익화|예상\s*효과|기대\s*효과|효과|성과|한계|리스크|위험|주의|고려\s*사항|지표|측정|성공\s*기준|각\s*(\d+|[한두세네다섯여섯일곱여덟아홉열])\s*항목\s*이내|보안|확장성/i,
   /\b(constraint|must|avoid|exclude|limit|tone|deadline|concise|briefly|accuracy|productivity|cost|price|usage|quality|criteria|criterion|perspective|practical|feasible|priority|difficulty|differentiation|moneti[sz]ation|expected effect|expected impact|outcome|limitation|risk|caution|consideration|metric|kpi|success criteria|secure|security|scalable|scalability|in korean|in english)\b/i
 ];
 

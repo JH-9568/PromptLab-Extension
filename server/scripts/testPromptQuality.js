@@ -1,6 +1,11 @@
 require('dotenv').config();
 
+const fs = require('fs');
+const path = require('path');
+
 const { generateImprovedPrompt } = require('../rag');
+
+const guidelineContent = fs.readFileSync(path.join(__dirname, '../guidelines/general.md'), 'utf8');
 
 const cases = [
   {
@@ -80,6 +85,34 @@ function hasExplicitQuantity(value) {
   return /\d+\s*(개|가지|명|문장|단계|항목|items?|steps?|examples?|ideas?|ways?|methods?)|[한두세네다섯여섯일곱여덟아홉열]\s*(개|가지|문장|단계|항목)/i.test(String(value || ''));
 }
 
+function trimTerminalPunctuation(value) {
+  return String(value || '').trim().replace(/[.!?。！？\s]+$/g, '');
+}
+
+function normalizeAppendComparison(value) {
+  return trimTerminalPunctuation(value)
+    .replace(/\s+/g, '')
+    .toLowerCase();
+}
+
+function hasAppendStyleRewrite(originalPrompt, improvedPrompt) {
+  const original = String(originalPrompt || '').trim();
+  const improved = String(improvedPrompt || '').trim();
+  const normalizedOriginal = normalizeAppendComparison(original);
+  const normalizedImproved = normalizeAppendComparison(improved);
+  if (normalizedOriginal.length < 12 || normalizedImproved.length <= normalizedOriginal.length) return false;
+  if (normalizedImproved.startsWith(normalizedOriginal)) return true;
+
+  const firstSentence = improved.split(/[.!?。！？]/)[0] || improved;
+  const normalizedOriginalStem = normalizeAppendComparison(
+    trimTerminalPunctuation(original)
+      .replace(/\s*(알려|설명|추천|제안|정리|작성)\s*해?\s*(줘|봐|주세요)?$/i, '')
+  );
+  const normalizedFirstSentence = normalizeAppendComparison(firstSentence);
+
+  return normalizedOriginalStem.length >= 12 && normalizedFirstSentence.startsWith(normalizedOriginalStem);
+}
+
 async function main() {
   let failed = 0;
 
@@ -88,7 +121,7 @@ async function main() {
       originalPrompt: testCase.originalPrompt,
       taskCategory: 'general',
       clientLanguage: 'ko',
-      guidelineContent: '',
+      guidelineContent,
       attachmentContext: { has_attachment: false, attachment_count: 0 }
     });
 
@@ -120,6 +153,11 @@ async function main() {
     if (result.improvement_type !== 'ask_clarifying_question'
       && result.after_analysis.specificity_score <= result.before_analysis.specificity_score) {
       failures.push(`score did not increase (${result.before_analysis.specificity_score} -> ${result.after_analysis.specificity_score})`);
+    }
+
+    if (result.improvement_type !== 'ask_clarifying_question'
+      && hasAppendStyleRewrite(testCase.originalPrompt, output)) {
+      failures.push('rewrite reads like original prompt plus appended requirements');
     }
 
     if (failures.length > 0) failed += 1;
