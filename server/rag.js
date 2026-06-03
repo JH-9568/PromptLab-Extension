@@ -462,10 +462,18 @@ function hasAppendStyleRewrite(originalPrompt, improvedPrompt) {
   const normalizedOriginalStem = normalizeAppendComparison(stripKoreanRequestEnding(original));
   const normalizedFirstSentence = normalizeAppendComparison(firstSentence);
   const suffixAfterFirstSentence = improved.slice(firstSentence.length).trim();
+  const firstSentenceRemainder = normalizedFirstSentence.slice(normalizedOriginalStem.length);
 
   return normalizedOriginalStem.length >= 12
     && normalizedFirstSentence.startsWith(normalizedOriginalStem)
-    && suffixPattern.test(suffixAfterFirstSentence);
+    && (
+      suffixPattern.test(suffixAfterFirstSentence)
+      || /구체|예상|기대|실행|사회적영향|지속가능성|한계|리스크|함께|포함/.test(firstSentenceRemainder)
+    );
+}
+
+function hasAwkwardRewritePattern(value) {
+  return /같은\s*(은|는|이|가)\s*어때|같은\s*(은|는|이|가)\b|의\s*로\b|을\s*에\b|를\s*에\b|데이터를\s*분석에|문제를\s*문제를|아이디어를\s*아이디어/i.test(String(value || ''));
 }
 
 function isUnderImprovedRewrite(originalPrompt, improvedPrompt) {
@@ -517,6 +525,10 @@ function getQualityIssues(originalPrompt, improvedPrompt) {
     issues.push('append_style_rewrite');
   }
 
+  if (hasAwkwardRewritePattern(improvedPrompt)) {
+    issues.push('awkward_language_pattern');
+  }
+
   if (isWebServiceIdeaPrompt(originalPrompt) && !hasWebServiceIdeaLens(improvedPrompt)) {
     issues.push('weak_web_service_idea_rewrite');
   }
@@ -542,6 +554,9 @@ function buildRewritePolicy(originalPrompt) {
     'Make the prompt clearer and easier for an AI assistant to execute.',
     'Do not merely polish wording. A good rewrite should visibly improve the expected answer while staying within the original intent.',
     'Do not simply append requirements to the original sentence. Integrate added requirements into a natural rewritten prompt.',
+    'Do not use hardcoded template wording when it distorts the request. Let the original meaning decide the rewrite.',
+    'For idea-seed prompts such as "X 같은 아이디어는 어때? 웹서비스 만들건데", treat X as an idea to evaluate or develop into a web service. Do not delete words around "아이디어" or produce broken particles.',
+    'For concept prompts such as "우주, 여행 같은 느낌", preserve the concept or mood. Do not force problem-solving wording unless the original explicitly asks to solve a problem.',
     'Keep it concise, but add enough useful answer design that the rewrite feels meaningfully better than the original.',
     'Never make a weak rewrite that only adds generic adjectives such as clearer, specific, practical, actionable, or executable.',
     'If the original is already understandable, add two or three natural answer-quality requirements, such as output structure, criteria, priorities, constraints, examples, assumptions, tradeoffs, edge cases, success metrics, execution steps, expected effects, or limitations.',
@@ -599,192 +614,6 @@ function stripKoreanRequestEnding(value) {
     .trim();
 }
 
-function extractKoreanWebServiceIdeaSubject(value) {
-  const subject = stripKoreanRequestEnding(value)
-    .replace(/웹\s*(서비스|사이트)|웹서비스|웹사이트/gi, '')
-    .replace(/아이디어/gi, '')
-    .replace(/해결할\s*수\s*있는|해결할수있는|해결하기\s*위한|위한/gi, '')
-    .replace(/같은\s*느낌의?|느낌의?|컨셉의?|콘셉트의?|테마의?|분위기의?|감성의?/gi, '')
-    .replace(/[,，]\s*/g, '와 ')
-    .replace(/\s*(을|를|에\s*대한)\s*$/g, '')
-    .replace(/\s+/g, ' ')
-    .trim();
-
-  return subject;
-}
-
-function hasKoreanProblemSolvingIntent(value) {
-  return /해결|문제|줄이|개선|완화|불편|예방|관리|도움/i.test(String(value || ''));
-}
-
-function hasKoreanConceptIntent(value) {
-  return /느낌|컨셉|콘셉트|테마|분위기|감성|스타일|세계관|무드/i.test(String(value || ''));
-}
-
-function extractKoreanIdeaSeed(value) {
-  const text = stripKoreanRequestEnding(value)
-    .replace(/웹\s*(서비스|사이트).*$/i, '')
-    .replace(/웹서비스.*$/i, '')
-    .replace(/웹사이트.*$/i, '')
-    .replace(/\s*(만들|만들건데|만드려고|제작|기획).*$/i, '')
-    .trim();
-
-  const match = text.match(/^(.+?)\s*같은\s*아이디어(?:는|가)?\s*(어때|어떨까|괜찮을까)?/i)
-    || text.match(/^(.+?)\s*아이디어(?:는|가)?\s*(어때|어떨까|괜찮을까)?/i);
-
-  return match?.[1]
-    ?.replace(/\s*(을|를|은|는|이|가)\s*$/g, '')
-    .replace(/\s+/g, ' ')
-    .trim() || '';
-}
-
-function buildKoreanWebServiceIdeaRewrite(basePrompt) {
-  const ideaSeed = extractKoreanIdeaSeed(basePrompt);
-
-  if (ideaSeed) {
-    return `${ideaSeed} 아이디어를 웹서비스로 발전시키는 방향을 제안해줘. 대상 사용자, 핵심 기능, 참여 유도 방식, 차별화 포인트, 수익화 가능성, 실행 난이도를 함께 평가해줘.`;
-  }
-
-  const subject = extractKoreanWebServiceIdeaSubject(basePrompt);
-
-  if (!subject) {
-    return '실현 가능한 웹서비스 아이디어를 추천해줘. 아이디어별 대상 사용자, 해결하는 문제, 차별화 포인트, 수익화 가능성, 실행 난이도를 함께 비교해줘.';
-  }
-
-  if (hasKoreanProblemSolvingIntent(basePrompt) && !hasKoreanConceptIntent(basePrompt)) {
-    return `${subject} 문제를 줄이는 웹서비스 아이디어를 추천해줘. 아이디어별 대상 사용자, 핵심 기능, 차별화 포인트, 수익화 가능성, 실행 난이도를 함께 비교해줘.`;
-  }
-
-  return `${subject} 콘셉트를 살린 웹서비스 아이디어를 추천해줘. 아이디어별 대상 사용자, 핵심 경험, 차별화 포인트, 수익화 가능성, 실행 난이도를 함께 비교해줘.`;
-}
-
-function buildKoreanGrowthRewrite(basePrompt) {
-  const serviceMatch = basePrompt.match(/^(.+?)\s*(사용자\s*수|유저\s*수)/i);
-  const serviceName = serviceMatch?.[1]?.trim();
-
-  if (serviceName) {
-    return `${serviceName}의 사용자 수를 늘리기 위한 성장 전략을 제안해줘. 전략별 우선순위, 실행 계획, 필요한 지표, 예상 리스크를 함께 설명해줘.`;
-  }
-
-  return `${basePrompt}. 성장 전략별 우선순위, 실행 계획, 필요한 지표, 예상 리스크를 함께 설명해줘.`;
-}
-
-function buildKoreanAnalysisRewrite(basePrompt) {
-  const subject = stripKoreanRequestEnding(basePrompt)
-    .replace(/어떤\s*분석을\s*하면\s*좋을까.*$/i, '')
-    .replace(/하려고\s*하는데.*$/i, '')
-    .replace(/\s*(을|를)\s*분석$/i, '')
-    .trim();
-
-  if (subject) {
-    return `${subject}에 적합한 분석 방법을 추천해줘. 분석 방법별 목적, 필요한 데이터, 기대 인사이트, 우선순위를 함께 설명해줘.`;
-  }
-
-  return `${basePrompt}. 분석 방법별 목적, 필요한 데이터, 기대 인사이트, 우선순위를 함께 설명해줘.`;
-}
-
-function buildKoreanIdeaRewrite(basePrompt, requirementText) {
-  const subject = stripKoreanRequestEnding(basePrompt)
-    .replace(/\s*(을|를)\s*$/g, '')
-    .replace(/예술적\s*요소를\s*활용해\s*해결할\s*수\s*있는\s*실용적인\s*아이디어/i, '예술적 요소로 완화하는 아이디어')
-    .replace(/해결할\s*수\s*있는\s*실용적인\s*아이디어/i, '완화하는 아이디어')
-    .trim();
-
-  if (!subject) {
-    return `아이디어를 추천해줘. ${requirementText}`;
-  }
-
-  return `${subject}를 추천해줘. ${requirementText}`;
-}
-
-function buildKoreanHowToRewrite(basePrompt) {
-  const task = stripKoreanRequestEnding(basePrompt)
-    .replace(/처음\s*구현하는\s*입장에서\s*어떤\s*구조로\s*설계하는\s*게\s*좋은지/i, '처음 구현할 때 참고할 설계 구조를')
-    .replace(/어떤\s*구조로\s*설계하는\s*게\s*좋은지/i, '설계 구조를')
-    .trim();
-
-  if (!task) {
-    return '실행 방법을 알려줘. 전체 흐름, 핵심 단계, 주의할 점, 간단한 예시를 함께 설명해줘.';
-  }
-
-  return `${task} 알려줘. 전체 흐름, 핵심 단계, 주의할 점, 간단한 예시를 함께 설명해줘.`;
-}
-
-function buildMeaningfulFallbackRewrite(originalPrompt, clientLanguage) {
-  const useKorean = hasKoreanText(originalPrompt) || /^ko\b/i.test(normalizeClientLanguage(clientLanguage));
-  const basePrompt = trimTerminalPunctuation(originalPrompt);
-
-  if (!basePrompt) return '';
-
-  if (useKorean) {
-    if (/웹\s*(서비스|사이트)|웹서비스|웹사이트|서비스/i.test(basePrompt) && /아이디어|추천|제안/i.test(basePrompt)) {
-      return buildKoreanWebServiceIdeaRewrite(basePrompt);
-    }
-
-    if (/사용자\s*수|유저\s*수|늘리|성장/i.test(basePrompt)) {
-      return buildKoreanGrowthRewrite(basePrompt);
-    }
-
-    if (/분석/i.test(basePrompt)) {
-      return buildKoreanAnalysisRewrite(basePrompt);
-    }
-
-    if (/아이디어|추천|제안/i.test(basePrompt) && /해결|문제|개선|줄이|늘리|성장/i.test(basePrompt)) {
-      return buildKoreanIdeaRewrite(
-        basePrompt,
-        '아이디어별 작동 원리, 실행 방식, 기대 효과, 현실적 한계를 함께 설명해줘.'
-      );
-    }
-
-    if (/아이디어|추천|제안/i.test(basePrompt)) {
-      return buildKoreanIdeaRewrite(
-        basePrompt,
-        '선정 기준, 추천 이유, 간단한 예시, 실행 난이도를 함께 설명해줘.'
-      );
-    }
-
-    if (/비교|차이|중\s*뭐|뭐가\s*나|어떤\s*게\s*나|선택/i.test(basePrompt)) {
-      return `${basePrompt}. 판단 기준, 장단점, 적합한 상황, 최종 추천을 함께 비교해줘.`;
-    }
-
-    if (/방법|어떻게|구현|설계|붙이|만들|작성|해결/i.test(basePrompt)) {
-      return buildKoreanHowToRewrite(basePrompt);
-    }
-
-    return `${stripKoreanRequestEnding(basePrompt)}에 대해 핵심 기준, 이유, 예시, 주의할 점을 함께 설명해줘.`;
-  }
-
-  if (/\b(web\s+service|service)\b/i.test(basePrompt) && /\b(ideas?|recommend|suggest|proposal)\b/i.test(basePrompt)) {
-    return `${basePrompt}. For each idea, include the target user, problem solved, differentiation point, monetization potential, and implementation difficulty.`;
-  }
-
-  if (/\b(users?|growth|grow|increase)\b/i.test(basePrompt)) {
-    return `${basePrompt}. Include strategy priorities, execution plan, required metrics, and expected risks.`;
-  }
-
-  if (/\b(analy[sz]e|analysis)\b/i.test(basePrompt)) {
-    return `${basePrompt}. Include each analysis type's purpose, required data, expected insights, and priority.`;
-  }
-
-  if (/\b(ideas?|recommend|suggest|proposal)\b/i.test(basePrompt) && /\b(solve|problem|improve|increase|grow|growth)\b/i.test(basePrompt)) {
-    return `${basePrompt}. For each idea, include how it works, execution approach, expected effect, and realistic limitations.`;
-  }
-
-  if (/\b(ideas?|recommend|suggest|proposal)\b/i.test(basePrompt)) {
-    return `${basePrompt}. Include selection criteria, reasons, simple examples, and implementation difficulty.`;
-  }
-
-  if (/\b(compare|difference|versus|vs\.?|which|choose|choice)\b/i.test(basePrompt)) {
-    return `${basePrompt}. Compare decision criteria, pros and cons, suitable situations, and a final recommendation.`;
-  }
-
-  if (/\b(how|method|implement|design|build|write|solve)\b/i.test(basePrompt)) {
-    return `${basePrompt}. Include the overall flow, key steps, cautions, and a simple example.`;
-  }
-
-  return `${basePrompt}. Include key criteria, reasons, examples, and cautions.`;
-}
-
 function shouldCompactShortRewrite(originalPrompt, improvedPrompt) {
   const originalWordCount = countWords(originalPrompt);
   if (originalWordCount > 20) return false;
@@ -811,7 +640,8 @@ async function compactShortRewrite({ client, model, originalPrompt, improvedProm
   const useKorean = hasKoreanText(originalPrompt) || /^ko\b/i.test(normalizeClientLanguage(clientLanguage));
   const isWeakRewrite = qualityIssues.includes('under_improved_rewrite')
     || qualityIssues.includes('append_style_rewrite')
-    || qualityIssues.includes('weak_web_service_idea_rewrite');
+    || qualityIssues.includes('weak_web_service_idea_rewrite')
+    || qualityIssues.includes('awkward_language_pattern');
   const maxInstruction = useKorean
     ? (isWeakRewrite ? '220자 이내의 한국어 1~2문장' : '120자 이내의 한국어 한 문장')
     : (isWeakRewrite ? '1 or 2 English sentences under 55 words' : 'one English sentence under 30 words');
@@ -838,6 +668,10 @@ async function compactShortRewrite({ client, model, originalPrompt, improvedProm
           `Keep it to ${maxInstruction}.`,
           'The compact prompt must still be meaningfully more useful than the original.',
           'Do not just append a second sentence to the original. Rewrite the prompt naturally so the added requirements feel integrated.',
+          'Do not follow hardcoded templates. Preserve whether the original asks for a problem solution, a concept/mood, an idea seed, a comparison, or a how-to.',
+          'Fix awkward Korean particles or broken phrases. Never produce fragments like "같은 는 어때", "의 로", "을 에", or "를 에".',
+          'If the original is an idea seed such as "X 같은 아이디어는 어때? 웹서비스 만들건데", rewrite it as a request to evaluate or develop X into a web service.',
+          'If the original asks for a mood or concept such as "우주, 여행 같은 느낌", keep it as a concept/mood request, not a problem-solving request.',
           isWeakRewrite
             ? 'Keep two to four directly relevant answer-quality requirements.'
             : 'Keep one directly relevant answer-quality requirement when it improves usefulness.',
@@ -849,6 +683,9 @@ async function compactShortRewrite({ client, model, originalPrompt, improvedProm
             : '',
           qualityIssues.includes('weak_web_service_idea_rewrite')
             ? 'For web service idea prompts, include target users, core features, differentiation, monetization potential, and implementation difficulty when they fit the original request.'
+            : '',
+          qualityIssues.includes('awkward_language_pattern')
+            ? 'The current rewrite contains awkward or broken Korean. Rewrite the entire prompt naturally instead of patching the broken phrase.'
             : '',
           qualityIssues.includes('invented_exact_count')
             ? 'The current rewrite added an arbitrary exact quantity. Remove the exact quantity unless the original prompt requested one.'
@@ -897,7 +734,7 @@ async function reviseGeneratedPayloadIfNeeded({
   const qualityIssues = getQualityIssues(originalPrompt, payload.improved_prompt);
   if (qualityIssues.length === 0) return payload;
 
-  const revisedPrompt = await compactShortRewrite({
+  let revisedPrompt = await compactShortRewrite({
     client,
     model,
     originalPrompt,
@@ -909,27 +746,44 @@ async function reviseGeneratedPayloadIfNeeded({
 
   if (!revisedPrompt) return payload;
 
-  const shouldUseMeaningfulFallback = (qualityIssues.includes('under_improved_rewrite') && isUnderImprovedRewrite(originalPrompt, revisedPrompt))
-    || hasAppendStyleRewrite(originalPrompt, revisedPrompt)
-    || (isWebServiceIdeaPrompt(originalPrompt) && !hasWebServiceIdeaLens(revisedPrompt))
-    || hasInventedExactCount(originalPrompt, revisedPrompt);
+  const revisedIssues = getQualityIssues(originalPrompt, revisedPrompt);
+  const severeRevisedIssues = revisedIssues.filter((issue) => [
+    'clarification_first_for_answerable_prompt',
+    'invented_exact_count',
+    'append_style_rewrite',
+    'awkward_language_pattern',
+    'weak_web_service_idea_rewrite'
+  ].includes(issue));
 
-  const finalRevisedPrompt = shouldUseMeaningfulFallback
-    ? buildMeaningfulFallbackRewrite(originalPrompt, clientLanguage)
-    : revisedPrompt;
+  if (severeRevisedIssues.length > 0) {
+    const secondRevision = await compactShortRewrite({
+      client,
+      model,
+      originalPrompt,
+      improvedPrompt: revisedPrompt,
+      clientLanguage,
+      attachmentContext,
+      qualityIssues: severeRevisedIssues
+    });
 
-  if (!finalRevisedPrompt) return payload;
+    if (secondRevision) {
+      revisedPrompt = secondRevision;
+    }
+  }
+
+  if (!revisedPrompt) return payload;
 
   return {
     ...payload,
-    improved_prompt: finalRevisedPrompt,
-    after_analysis: mergePromptAnalysis(null, finalRevisedPrompt, attachmentContext),
+    improved_prompt: revisedPrompt,
+    after_analysis: mergePromptAnalysis(null, revisedPrompt, attachmentContext),
     improvement_type: payload.improvement_type === 'ask_clarifying_question'
       ? 'clarify_goal'
       : qualityIssues.includes('under_improved_rewrite')
         || qualityIssues.includes('invented_exact_count')
         || qualityIssues.includes('append_style_rewrite')
         || qualityIssues.includes('weak_web_service_idea_rewrite')
+        || qualityIssues.includes('awkward_language_pattern')
         ? 'add_output_structure'
       : payload.improvement_type,
     improvement_reason: qualityIssues.includes('clarification_first_for_answerable_prompt')
@@ -938,6 +792,8 @@ async function reviseGeneratedPayloadIfNeeded({
         ? '2차 검토에서 임의 개수를 제거하고 답변 구조를 보강했습니다.'
       : qualityIssues.includes('append_style_rewrite')
         ? '2차 검토에서 덧붙이기식 문장을 자연스러운 개선 프롬프트로 재작성했습니다.'
+      : qualityIssues.includes('awkward_language_pattern')
+        ? '2차 검토에서 어색한 문장 조합을 자연스러운 개선 프롬프트로 재작성했습니다.'
       : qualityIssues.includes('weak_web_service_idea_rewrite')
         ? '2차 검토에서 웹서비스 아이디어 답변에 필요한 평가 축을 보강했습니다.'
       : qualityIssues.includes('under_improved_rewrite')
