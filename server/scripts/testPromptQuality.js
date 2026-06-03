@@ -31,6 +31,20 @@ const cases = [
     ]
   },
   {
+    name: 'space_travel_concept_web_service',
+    originalPrompt: '우주, 여행같은 느낌의 웹서비스 추천해봐',
+    mustNotMatch: /문제\s*를?\s*줄이는|문제\s*해결|같은\s*느낌의\s*로|의\s*로/,
+    mustMatchAll: [
+      /우주/,
+      /여행/,
+      /웹\s*(서비스|사이트)|웹서비스|웹사이트/,
+      /콘셉트|컨셉|분위기|경험|감성/,
+      /대상\s*사용자/,
+      /핵심\s*(경험|기능)|차별화/,
+      /수익화|실행\s*난이도|난이도/
+    ]
+  },
+  {
     name: 'very_vague_this',
     originalPrompt: '이거 설명해줘',
     mustMatch: /답변하지\s*말고|물어|질문|무엇|어떤|주제|내용/

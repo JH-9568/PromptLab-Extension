@@ -604,11 +604,21 @@ function extractKoreanWebServiceIdeaSubject(value) {
     .replace(/웹\s*(서비스|사이트)|웹서비스|웹사이트/gi, '')
     .replace(/아이디어/gi, '')
     .replace(/해결할\s*수\s*있는|해결할수있는|해결하기\s*위한|위한/gi, '')
+    .replace(/같은\s*느낌의?|느낌의?|컨셉의?|콘셉트의?|테마의?|분위기의?|감성의?/gi, '')
+    .replace(/[,，]\s*/g, '와 ')
     .replace(/\s*(을|를|에\s*대한)\s*$/g, '')
     .replace(/\s+/g, ' ')
     .trim();
 
   return subject;
+}
+
+function hasKoreanProblemSolvingIntent(value) {
+  return /해결|문제|줄이|개선|완화|불편|예방|관리|도움/i.test(String(value || ''));
+}
+
+function hasKoreanConceptIntent(value) {
+  return /느낌|컨셉|콘셉트|테마|분위기|감성|스타일|세계관|무드/i.test(String(value || ''));
 }
 
 function buildKoreanWebServiceIdeaRewrite(basePrompt) {
@@ -618,7 +628,11 @@ function buildKoreanWebServiceIdeaRewrite(basePrompt) {
     return '실현 가능한 웹서비스 아이디어를 추천해줘. 아이디어별 대상 사용자, 해결하는 문제, 차별화 포인트, 수익화 가능성, 실행 난이도를 함께 비교해줘.';
   }
 
-  return `${subject} 문제를 줄이는 웹서비스 아이디어를 추천해줘. 아이디어별 대상 사용자, 핵심 기능, 차별화 포인트, 수익화 가능성, 실행 난이도를 함께 비교해줘.`;
+  if (hasKoreanProblemSolvingIntent(basePrompt) && !hasKoreanConceptIntent(basePrompt)) {
+    return `${subject} 문제를 줄이는 웹서비스 아이디어를 추천해줘. 아이디어별 대상 사용자, 핵심 기능, 차별화 포인트, 수익화 가능성, 실행 난이도를 함께 비교해줘.`;
+  }
+
+  return `${subject} 콘셉트를 살린 웹서비스 아이디어를 추천해줘. 아이디어별 대상 사용자, 핵심 경험, 차별화 포인트, 수익화 가능성, 실행 난이도를 함께 비교해줘.`;
 }
 
 function buildKoreanGrowthRewrite(basePrompt) {
