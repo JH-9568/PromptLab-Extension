@@ -7,7 +7,11 @@ const cases = [
     name: 'web_service_ideas',
     originalPrompt: '웹 서비스 아이디어 추천해줘',
     mustNotMatch: /먼저|사용자에게|물어|질문|알려\s*주시면|제공해\s*주시면/,
-    mustMatch: /웹\s*서비스|아이디어/
+    mustMatchAll: [
+      /웹\s*서비스|서비스/,
+      /아이디어/,
+      /선정\s*기준|추천\s*이유|대상\s*사용자|해결.*문제|문제.*해결|수익화|예시|실행\s*난이도|난이도/
+    ]
   },
   {
     name: 'very_vague_this',
@@ -18,21 +22,51 @@ const cases = [
     name: 'nextjs_subscription',
     originalPrompt: 'Next.js로 만든 SaaS 서비스에 구독 결제를 붙이려고 한다. 처음 구현하는 입장에서 어떤 구조로 설계하는 게 좋은지 알려줘.',
     mustNotMatch: /먼저|사용자에게|물어|질문|알려\s*주시면|제공해\s*주시면/,
-    mustMatch: /구독|결제|구조|웹훅|상태|흐름|아키텍처/
+    mustMatchAll: [
+      /구독/,
+      /결제/,
+      /구조|흐름|단계|설계|아키텍처/,
+      /주의|웹훅|상태|예시|핵심|보안|고려/
+    ]
   },
   {
     name: 'user_log_analysis',
     originalPrompt: '사용자 로그 데이터를 분석하려고 하는데 어떤 분석을 하면 좋을까?',
     mustNotMatch: /먼저|사용자에게|물어|질문|알려\s*주시면|제공해\s*주시면/,
-    mustMatch: /분석|인사이트|로그|데이터/
+    mustMatchAll: [
+      /분석/,
+      /로그|데이터/,
+      /인사이트|목적|목표|우선순위|필요한\s*데이터|지표|장단점|적용\s*사례/
+    ]
   },
   {
     name: 'promptlab_growth',
     originalPrompt: 'PromptLab 사용자 수를 늘리고 싶어',
     mustNotMatch: /먼저|사용자에게|물어|질문|알려\s*주시면|제공해\s*주시면/,
-    mustMatch: /PromptLab|사용자|성장|전략|우선순위|실행/
+    mustMatchAll: [
+      /PromptLab/,
+      /사용자/,
+      /성장|전략|획득|채널/,
+      /우선순위|실행\s*계획|지표|리스크/
+    ]
+  },
+  {
+    name: 'art_overconsumption_ideas',
+    originalPrompt: '과소비와 과시 문제를 예술적 요소를 활용해 해결할 수 있는 실용적인 아이디어를 제안해줘.',
+    mustNotMatch: /^과소비와 과시 문제를 예술적 요소로 해결할 수 있는 실용적이고 실행 가능한 아이디어를 제안해줘\.?$/,
+    mustMatchAll: [
+      /과소비|과시/,
+      /예술/,
+      /작동\s*원리|실행\s*방식|실행\s*방법|실천\s*방법|적용\s*방법/,
+      /기대\s*효과|효과|성과/,
+      /한계|리스크|주의|현실/
+    ]
   }
 ];
+
+function hasExplicitQuantity(value) {
+  return /\d+\s*(개|가지|명|문장|단계|항목|items?|steps?|examples?|ideas?|ways?|methods?)|[한두세네다섯여섯일곱여덟아홉열]\s*(개|가지|문장|단계|항목)/i.test(String(value || ''));
+}
 
 async function main() {
   let failed = 0;
@@ -53,8 +87,22 @@ async function main() {
       failures.push(`missing expected pattern ${testCase.mustMatch}`);
     }
 
+    if (testCase.mustMatchAll) {
+      for (const pattern of testCase.mustMatchAll) {
+        if (!pattern.test(output)) {
+          failures.push(`missing expected pattern ${pattern}`);
+        }
+      }
+    }
+
     if (testCase.mustNotMatch && testCase.mustNotMatch.test(output)) {
       failures.push(`matched forbidden pattern ${testCase.mustNotMatch}`);
+    }
+
+    if (result.improvement_type !== 'ask_clarifying_question'
+      && !hasExplicitQuantity(testCase.originalPrompt)
+      && hasExplicitQuantity(output)) {
+      failures.push('added an arbitrary exact quantity');
     }
 
     if (failures.length > 0) failed += 1;

@@ -327,6 +327,129 @@ function hasClarificationFirstRewrite(value) {
   return /답변하기\s*전|먼저\s*(사용자|질문|확인|요청)|사용자에게\s*(물어|질문|요청)|정보를\s*(요청|확인|질문)|구체적인\s*정보를\s*(요청|물어|질문)|세부\s*정보를\s*(요청|물어|질문)|추천하려면.*질문|묻는\s*질문|질문을\s*(해|작성|만들)|알려\s*주시면|제공해\s*주시면|ask\s+the\s+user|ask\s+me|before\s+answering|first\s+ask|request\s+more\s+details|provide\s+more\s+details/i.test(text);
 }
 
+function normalizeComparisonToken(value) {
+  return String(value || '')
+    .trim()
+    .toLowerCase()
+    .replace(/(해주세요|해줘|줘)$/g, '')
+    .replace(/(적인|적이고|적으로|적)$/g, '')
+    .replace(/(하고|하게|하기|해서|하며|하면|해)$/g, '')
+    .replace(/(으로|로|에서|에게|한테|부터|까지|처럼|보다|과|와|의|을|를|은|는|이|가|도|만|좀)$/g, '')
+    .trim();
+}
+
+function getComparableTokens(value) {
+  const stopwords = new Set([
+    '수',
+    '있는',
+    '있게',
+    '위해',
+    '위한',
+    '관련',
+    '더',
+    '좋은',
+    '명확',
+    '구체',
+    '실용',
+    '실행',
+    '가능',
+    'actionable',
+    'clear',
+    'specific',
+    'practical'
+  ]);
+
+  return String(value || '')
+    .normalize('NFKC')
+    .toLowerCase()
+    .replace(/[^\p{L}\p{N}]+/gu, ' ')
+    .split(/\s+/)
+    .map(normalizeComparisonToken)
+    .filter((token) => token.length >= 2 && !stopwords.has(token));
+}
+
+function countNewGuidanceMarkers(originalPrompt, improvedPrompt) {
+  const original = String(originalPrompt || '');
+  const improved = String(improvedPrompt || '');
+  const guidanceMarkers = [
+    /기준|관점|판단\s*근거|선정\s*기준|평가/i,
+    /우선순위|중요도|먼저\s*할\s*일/i,
+    /항목별|구조|흐름|단계|계획|전략|채널/i,
+    /장단점|차이점|비교|트레이드오프/i,
+    /예시|사례|샘플/i,
+    /실행\s*방식|실행\s*방법|실행\s*계획|실천\s*방법|적용\s*방법/i,
+    /기대\s*효과|효과|성과|측정\s*지표|성공\s*기준/i,
+    /현실적\s*한계|한계|리스크|도전\s*과제|주의\s*점|고려\s*사항/i,
+    /인사이트|원인|해결책|해결하는\s*문제|문제\s*해결|차별화|수익화|개선\s*방향|적합한\s*용도/i,
+    /criteria|perspective|decision\s+basis|selection\s+criteria|evaluation/i,
+    /priority|importance|first\s+steps?/i,
+    /by\s+item|structure|flow|steps?|plan|strategy|channel/i,
+    /pros?\s+and\s+cons?|differences?|compare|trade-?offs?/i,
+    /examples?|samples?|cases?/i,
+    /execution\s+approach|implementation\s+approach|practical\s+steps?|application\s+method/i,
+    /expected\s+outcomes?|effect|impact|success\s+criteria|metrics?/i,
+    /limitations?|risks?|considerations?|cautions?/i,
+    /insights?|causes?|solutions?|problem\s+solved|differentiation|moneti[sz]ation|improvement\s+direction|suitable\s+use/i
+  ];
+
+  return guidanceMarkers
+    .filter((pattern) => pattern.test(improved) && !pattern.test(original))
+    .length;
+}
+
+function hasMeaningfulGuidanceExpansion(originalPrompt, improvedPrompt) {
+  const markerCount = countNewGuidanceMarkers(originalPrompt, improvedPrompt);
+  return markerCount >= 2;
+}
+
+function isProblemSolvingIdeaPrompt(value) {
+  const text = String(value || '');
+  return /아이디어|추천|제안|ideas?|recommend|suggest|proposal/i.test(text)
+    && /해결|문제|개선|줄이|늘리|성장|과소비|과시|solve|problem|improve|increase|grow|growth/i.test(text);
+}
+
+function isGrowthPrompt(value) {
+  return /사용자\s*수|유저\s*수|늘리|성장|확보|획득|users?|growth|grow|increase|acquire|acquisition/i.test(String(value || ''));
+}
+
+function hasExplicitQuantity(value) {
+  return /\d+\s*(개|가지|명|문장|단계|항목|items?|steps?|examples?|ideas?|ways?|methods?)|[한두세네다섯여섯일곱여덟아홉열]\s*(개|가지|문장|단계|항목)/i.test(String(value || ''));
+}
+
+function hasInventedExactCount(originalPrompt, improvedPrompt) {
+  return !hasExplicitQuantity(originalPrompt) && hasExplicitQuantity(improvedPrompt);
+}
+
+function isUnderImprovedRewrite(originalPrompt, improvedPrompt) {
+  if (!isGenerallyAnswerablePrompt(originalPrompt)) return false;
+
+  const markerCount = countNewGuidanceMarkers(originalPrompt, improvedPrompt);
+  if (isProblemSolvingIdeaPrompt(originalPrompt) && markerCount < 3) return true;
+  if (isGrowthPrompt(originalPrompt) && markerCount < 3) return true;
+  if (hasMeaningfulGuidanceExpansion(originalPrompt, improvedPrompt)) return false;
+
+  if (countWords(originalPrompt) <= 20 && markerCount < 2) return true;
+
+  const originalTokens = getComparableTokens(originalPrompt);
+  if (originalTokens.length < 4) return false;
+
+  const improvedTokens = getComparableTokens(improvedPrompt);
+  if (improvedTokens.length === 0) return false;
+
+  const improvedTokenSet = new Set(improvedTokens);
+  const sharedTokenCount = originalTokens.filter((token) => improvedTokenSet.has(token)).length;
+  const overlapRatio = sharedTokenCount / originalTokens.length;
+  const addedTokenCount = improvedTokens.filter((token) => !originalTokens.includes(token)).length;
+
+  const originalLength = countKoreanAwareLength(originalPrompt);
+  const improvedLength = countKoreanAwareLength(improvedPrompt);
+  const lengthLimit = hasKoreanText(improvedPrompt)
+    ? Math.max(originalLength + 35, originalLength * 1.65)
+    : Math.max(originalLength + 10, originalLength * 1.5);
+
+  return overlapRatio >= 0.7 && addedTokenCount <= 3 && improvedLength <= lengthLimit;
+}
+
 function getQualityIssues(originalPrompt, improvedPrompt) {
   const issues = [];
 
@@ -338,13 +461,21 @@ function getQualityIssues(originalPrompt, improvedPrompt) {
     issues.push('over_expanded_short_prompt');
   }
 
+  if (hasInventedExactCount(originalPrompt, improvedPrompt)) {
+    issues.push('invented_exact_count');
+  }
+
+  if (isUnderImprovedRewrite(originalPrompt, improvedPrompt)) {
+    issues.push('under_improved_rewrite');
+  }
+
   return issues;
 }
 
 function buildRewritePolicy(originalPrompt) {
   const text = String(originalPrompt || '');
   const wordCount = countWords(text);
-  const hasExplicitCount = /\d+\s*(개|가지|명|문장|단계|항목|items?|steps?|examples?)|[한두세네다섯여섯일곱여덟아홉열]\s*(개|가지|문장|단계|항목)/i.test(text);
+  const hasExplicitCount = hasExplicitQuantity(text);
   const hasExplicitFormat = /단계별|목록|리스트|불릿|번호|섹션|문단|요약|표|테이블|json|markdown|bullet|list|table|step|section/i.test(text);
 
   return [
@@ -353,16 +484,20 @@ function buildRewritePolicy(originalPrompt) {
     'Preserve the original intent and scope.',
     'Treat the five analysis fields as measurement metadata only. They are not a checklist to maximize.',
     'Make the prompt clearer and easier for an AI assistant to execute.',
-    'Keep it concise. Add only the smallest amount of context, structure, or constraints needed.',
-    'Strictly do not add specific tools, technologies, platforms, methods, categories, examples, counts, audience details, edge cases, or requirements that the original prompt did not mention.',
-    'Use generic wording such as "practical method", "useful tips", "useful criteria", or "simple example" instead of inventing named tools or detailed subtopics.',
-    'For recommendation or planning prompts, it is okay to add one generic quality lens such as feasibility, priority, differentiation, expected insight, or execution plan when it directly improves answer usefulness.',
+    'Do not merely polish wording. A good rewrite should visibly improve the expected answer while staying within the original intent.',
+    'Keep it concise, but add enough useful answer design that the rewrite feels meaningfully better than the original.',
+    'Never make a weak rewrite that only adds generic adjectives such as clearer, specific, practical, actionable, or executable.',
+    'If the original is already understandable, add two or three natural answer-quality requirements, such as output structure, criteria, priorities, constraints, examples, assumptions, tradeoffs, edge cases, success metrics, execution steps, expected effects, or limitations.',
+    'You may add examples, constraints, comparison criteria, output structure, or evaluation criteria when they are a natural extension of the original task.',
+    'Do not invent private facts, user background, exact numbers, deadlines, budget, location, file contents, target audience, or business details not present in the original prompt.',
+    'Do not add named tools, technologies, platforms, or methods unless the original prompt mentions them or the task clearly asks for tool/method examples.',
+    'For recommendation, planning, problem-solving, or idea-generation prompts, add useful lenses such as feasibility, differentiation, priority, execution plan, expected impact, constraints, examples, or risks when they directly improve answer usefulness.',
     'If the original prompt asks for tips, methods, explanations, recommendations, or how-to guidance, do not turn it into a clarification-first prompt unless it is impossible to answer generally.',
     'If the prompt is too vague to improve safely, rewrite it as an instruction for the assistant to ask one concise clarifying question.',
     hasExplicitCount ? 'The user requested a quantity; preserve it.' : 'The user did not request a quantity; do not add one.',
     hasExplicitFormat ? 'The user requested an output format; preserve it.' : 'The user did not request a specific output format; do not force one.',
     wordCount <= 20
-      ? 'For short prompts, keep the rewrite to 1 sentence and under about 120 Korean characters or 30 English words. This is a hard limit. Add at most one new answer-quality requirement. Do not add a colon, parenthetical lists, numbered questions, multiple options, or many subtopics.'
+      ? 'For short prompts, keep the rewrite to 1 or 2 sentences and under about 220 Korean characters or 55 English words. Add two to four aligned answer requirements when the prompt is generally answerable. Do not turn it into a questionnaire.'
       : 'For detailed prompts, preserve the requested depth and improve clarity, structure, and answer quality where it helps.'
   ].join(' ');
 }
@@ -397,24 +532,107 @@ function buildVeryVaguePrompt({ originalPrompt, clientLanguage, attachmentContex
     : 'Do not answer yet; ask the user what topic or content they want explained.';
 }
 
+function trimTerminalPunctuation(value) {
+  return String(value || '').trim().replace(/[.!?。！？\s]+$/g, '');
+}
+
+function buildMeaningfulFallbackRewrite(originalPrompt, clientLanguage) {
+  const useKorean = hasKoreanText(originalPrompt) || /^ko\b/i.test(normalizeClientLanguage(clientLanguage));
+  const basePrompt = trimTerminalPunctuation(originalPrompt);
+
+  if (!basePrompt) return '';
+
+  if (useKorean) {
+    if (/웹\s*서비스|서비스/i.test(basePrompt) && /아이디어|추천|제안/i.test(basePrompt)) {
+      return `${basePrompt}. 각 아이디어의 대상 사용자, 해결하는 문제, 차별화 포인트, 수익화 가능성, 실행 난이도를 함께 설명해줘.`;
+    }
+
+    if (/사용자\s*수|유저\s*수|늘리|성장/i.test(basePrompt)) {
+      return `${basePrompt}. 성장 전략별 우선순위, 실행 계획, 필요한 지표, 예상 리스크를 함께 설명해줘.`;
+    }
+
+    if (/분석/i.test(basePrompt)) {
+      return `${basePrompt}. 분석 방법별 목적, 필요한 데이터, 기대 인사이트, 우선순위를 함께 설명해줘.`;
+    }
+
+    if (/아이디어|추천|제안/i.test(basePrompt) && /해결|문제|개선|줄이|늘리|성장/i.test(basePrompt)) {
+      return `${basePrompt}. 아이디어별 작동 원리, 실행 방식, 기대 효과, 현실적 한계를 함께 설명해줘.`;
+    }
+
+    if (/아이디어|추천|제안/i.test(basePrompt)) {
+      return `${basePrompt}. 선정 기준, 추천 이유, 간단한 예시, 실행 난이도를 함께 설명해줘.`;
+    }
+
+    if (/비교|차이|중\s*뭐|뭐가\s*나|어떤\s*게\s*나|선택/i.test(basePrompt)) {
+      return `${basePrompt}. 판단 기준, 장단점, 적합한 상황, 최종 추천을 함께 비교해줘.`;
+    }
+
+    if (/방법|어떻게|구현|설계|붙이|만들|작성|해결/i.test(basePrompt)) {
+      return `${basePrompt}. 전체 흐름, 핵심 단계, 주의할 점, 간단한 예시를 함께 설명해줘.`;
+    }
+
+    return `${basePrompt}. 핵심 기준, 이유, 예시, 주의할 점을 함께 설명해줘.`;
+  }
+
+  if (/\b(web\s+service|service)\b/i.test(basePrompt) && /\b(ideas?|recommend|suggest|proposal)\b/i.test(basePrompt)) {
+    return `${basePrompt}. For each idea, include the target user, problem solved, differentiation point, monetization potential, and implementation difficulty.`;
+  }
+
+  if (/\b(users?|growth|grow|increase)\b/i.test(basePrompt)) {
+    return `${basePrompt}. Include strategy priorities, execution plan, required metrics, and expected risks.`;
+  }
+
+  if (/\b(analy[sz]e|analysis)\b/i.test(basePrompt)) {
+    return `${basePrompt}. Include each analysis type's purpose, required data, expected insights, and priority.`;
+  }
+
+  if (/\b(ideas?|recommend|suggest|proposal)\b/i.test(basePrompt) && /\b(solve|problem|improve|increase|grow|growth)\b/i.test(basePrompt)) {
+    return `${basePrompt}. For each idea, include how it works, execution approach, expected effect, and realistic limitations.`;
+  }
+
+  if (/\b(ideas?|recommend|suggest|proposal)\b/i.test(basePrompt)) {
+    return `${basePrompt}. Include selection criteria, reasons, simple examples, and implementation difficulty.`;
+  }
+
+  if (/\b(compare|difference|versus|vs\.?|which|choose|choice)\b/i.test(basePrompt)) {
+    return `${basePrompt}. Compare decision criteria, pros and cons, suitable situations, and a final recommendation.`;
+  }
+
+  if (/\b(how|method|implement|design|build|write|solve)\b/i.test(basePrompt)) {
+    return `${basePrompt}. Include the overall flow, key steps, cautions, and a simple example.`;
+  }
+
+  return `${basePrompt}. Include key criteria, reasons, examples, and cautions.`;
+}
+
 function shouldCompactShortRewrite(originalPrompt, improvedPrompt) {
   const originalWordCount = countWords(originalPrompt);
   if (originalWordCount > 20) return false;
 
   const originalLength = countKoreanAwareLength(originalPrompt);
   const improvedLength = countKoreanAwareLength(improvedPrompt);
-  const hardLimit = hasKoreanText(improvedPrompt) ? 80 : 30;
-  const expansionLimit = Math.max(originalLength * 3, hardLimit);
-  const toolListPattern = /excel|google sheets|python|pandas|command[- ]?line|uniq|awk|vba|office add-?in|graph api|power automate|명령줄|도구별|장단점|첫\/마지막|부분\s*키|지원동기|경험기술|성장|목표\s*사용자|대상\s*사용자|target\s+users?|자주\s*하는\s*실수|문장\s*예시|항목별/i;
+  const hardLimit = hasKoreanText(improvedPrompt) ? 220 : 55;
+  const expansionLimit = Math.max(originalLength * 4, hardLimit);
+  const toolPatterns = [
+    /excel/i,
+    /google sheets/i,
+    /python|pandas/i,
+    /command[- ]?line|uniq|awk|명령줄/i,
+    /vba|office add-?in|graph api|power automate/i
+  ];
+  const mentionedToolCount = toolPatterns.filter((pattern) => pattern.test(improvedPrompt)).length;
+  const originalMentionedToolCount = toolPatterns.filter((pattern) => pattern.test(originalPrompt)).length;
+  const hasInventedToolPileup = mentionedToolCount >= 3 && originalMentionedToolCount === 0;
 
-  return improvedLength > expansionLimit || toolListPattern.test(improvedPrompt);
+  return improvedLength > expansionLimit || hasInventedToolPileup;
 }
 
-async function compactShortRewrite({ client, model, originalPrompt, improvedPrompt, clientLanguage, attachmentContext }) {
+async function compactShortRewrite({ client, model, originalPrompt, improvedPrompt, clientLanguage, attachmentContext, qualityIssues = [] }) {
   const useKorean = hasKoreanText(originalPrompt) || /^ko\b/i.test(normalizeClientLanguage(clientLanguage));
+  const isWeakRewrite = qualityIssues.includes('under_improved_rewrite');
   const maxInstruction = useKorean
-    ? '80자 이내의 한국어 한 문장'
-    : 'one English sentence under 18 words';
+    ? (isWeakRewrite ? '220자 이내의 한국어 1~2문장' : '120자 이내의 한국어 한 문장')
+    : (isWeakRewrite ? '1 or 2 English sentences under 55 words' : 'one English sentence under 30 words');
   const attachmentInstruction = hasAttachmentContext(attachmentContext)
     ? (useKorean
         ? '첨부가 감지되었으므로 필요하면 첨부 자료 참조만 짧게 포함하세요.'
@@ -437,13 +655,22 @@ async function compactShortRewrite({ client, model, originalPrompt, improvedProm
           `Write in ${useKorean ? 'Korean' : 'English'}.`,
           `Keep it to ${maxInstruction}.`,
           'The compact prompt must still be meaningfully more useful than the original.',
-          'Keep one directly relevant answer-quality requirement when it improves usefulness.',
+          isWeakRewrite
+            ? 'Keep two to four directly relevant answer-quality requirements.'
+            : 'Keep one directly relevant answer-quality requirement when it improves usefulness.',
+          isWeakRewrite
+            ? 'The current rewrite is too similar to the original. Do not merely add generic adjectives. Add two to four aligned answer requirements such as examples, constraints, output structure, evaluation criteria, execution approach, expected effect, priority, tradeoff, limitation, or decision basis.'
+            : 'Remove unnecessary expansion while preserving one useful answer-quality requirement.',
+          qualityIssues.includes('invented_exact_count')
+            ? 'The current rewrite added an arbitrary exact quantity. Remove the exact quantity unless the original prompt requested one.'
+            : '',
           'Do not write in assistant-answer voice. Write as a user instruction to an AI assistant.',
           'For generally answerable requests, do not ask the user for missing details first.',
           'If the over-expanded rewrite asks for missing details but the original topic is clear, rewrite it into an immediately answerable prompt.',
           'Do not turn a how-to request into a yes/no question.',
           'If the original asks for a method, keep it as a request for a practical method.',
-          'Remove invented tools, methods, categories, examples, tradeoffs, edge cases, and details not present in the original prompt.',
+          'Keep safe examples, constraints, structure, tradeoffs, and edge cases when they naturally fit the original intent.',
+          'Remove unsupported private facts, arbitrary exact counts, and unrelated named tools or platforms.',
           'Remove generic meta-instructions about asking for more specificity unless the original prompt asks for them.',
           attachmentInstruction
         ].join(' ')
@@ -454,10 +681,10 @@ async function compactShortRewrite({ client, model, originalPrompt, improvedProm
           'Original prompt:',
           originalPrompt,
           '',
-          'Over-expanded rewrite:',
+          isWeakRewrite ? 'Weak rewrite:' : 'Over-expanded rewrite:',
           improvedPrompt,
           '',
-          'Compact it now.'
+          isWeakRewrite ? 'Improve it meaningfully now.' : 'Compact it now.'
         ].join('\n')
       }
     ]
@@ -487,20 +714,36 @@ async function reviseGeneratedPayloadIfNeeded({
     originalPrompt,
     improvedPrompt: payload.improved_prompt,
     clientLanguage,
-    attachmentContext
+    attachmentContext,
+    qualityIssues
   });
 
   if (!revisedPrompt) return payload;
 
+  const shouldUseMeaningfulFallback = (qualityIssues.includes('under_improved_rewrite') && isUnderImprovedRewrite(originalPrompt, revisedPrompt))
+    || hasInventedExactCount(originalPrompt, revisedPrompt);
+
+  const finalRevisedPrompt = shouldUseMeaningfulFallback
+    ? buildMeaningfulFallbackRewrite(originalPrompt, clientLanguage)
+    : revisedPrompt;
+
+  if (!finalRevisedPrompt) return payload;
+
   return {
     ...payload,
-    improved_prompt: revisedPrompt,
-    after_analysis: mergePromptAnalysis(null, revisedPrompt, attachmentContext),
+    improved_prompt: finalRevisedPrompt,
+    after_analysis: mergePromptAnalysis(null, finalRevisedPrompt, attachmentContext),
     improvement_type: payload.improvement_type === 'ask_clarifying_question'
       ? 'clarify_goal'
+      : qualityIssues.includes('under_improved_rewrite') || qualityIssues.includes('invented_exact_count')
+        ? 'add_output_structure'
       : payload.improvement_type,
     improvement_reason: qualityIssues.includes('clarification_first_for_answerable_prompt')
       ? '2차 검토에서 답변 가능한 요청이 추가 질문으로 바뀌지 않도록 수정했습니다.'
+      : qualityIssues.includes('invented_exact_count')
+        ? '2차 검토에서 임의 개수를 제거하고 답변 구조를 보강했습니다.'
+      : qualityIssues.includes('under_improved_rewrite')
+        ? '2차 검토에서 단순 표현 수정이 아니라 답변 기준이나 실행 관점을 보강했습니다.'
       : payload.improvement_reason
   };
 }
