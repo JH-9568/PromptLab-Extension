@@ -621,7 +621,30 @@ function hasKoreanConceptIntent(value) {
   return /느낌|컨셉|콘셉트|테마|분위기|감성|스타일|세계관|무드/i.test(String(value || ''));
 }
 
+function extractKoreanIdeaSeed(value) {
+  const text = stripKoreanRequestEnding(value)
+    .replace(/웹\s*(서비스|사이트).*$/i, '')
+    .replace(/웹서비스.*$/i, '')
+    .replace(/웹사이트.*$/i, '')
+    .replace(/\s*(만들|만들건데|만드려고|제작|기획).*$/i, '')
+    .trim();
+
+  const match = text.match(/^(.+?)\s*같은\s*아이디어(?:는|가)?\s*(어때|어떨까|괜찮을까)?/i)
+    || text.match(/^(.+?)\s*아이디어(?:는|가)?\s*(어때|어떨까|괜찮을까)?/i);
+
+  return match?.[1]
+    ?.replace(/\s*(을|를|은|는|이|가)\s*$/g, '')
+    .replace(/\s+/g, ' ')
+    .trim() || '';
+}
+
 function buildKoreanWebServiceIdeaRewrite(basePrompt) {
+  const ideaSeed = extractKoreanIdeaSeed(basePrompt);
+
+  if (ideaSeed) {
+    return `${ideaSeed} 아이디어를 웹서비스로 발전시키는 방향을 제안해줘. 대상 사용자, 핵심 기능, 참여 유도 방식, 차별화 포인트, 수익화 가능성, 실행 난이도를 함께 평가해줘.`;
+  }
+
   const subject = extractKoreanWebServiceIdeaSubject(basePrompt);
 
   if (!subject) {
