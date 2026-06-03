@@ -485,6 +485,7 @@ function buildRewritePolicy(originalPrompt) {
     'Treat the five analysis fields as measurement metadata only. They are not a checklist to maximize.',
     'Make the prompt clearer and easier for an AI assistant to execute.',
     'Do not merely polish wording. A good rewrite should visibly improve the expected answer while staying within the original intent.',
+    'Do not simply append requirements to the original sentence. Integrate added requirements into a natural rewritten prompt.',
     'Keep it concise, but add enough useful answer design that the rewrite feels meaningfully better than the original.',
     'Never make a weak rewrite that only adds generic adjectives such as clearer, specific, practical, actionable, or executable.',
     'If the original is already understandable, add two or three natural answer-quality requirements, such as output structure, criteria, priorities, constraints, examples, assumptions, tradeoffs, edge cases, success metrics, execution steps, expected effects, or limitations.',
@@ -536,6 +537,58 @@ function trimTerminalPunctuation(value) {
   return String(value || '').trim().replace(/[.!?。！？\s]+$/g, '');
 }
 
+function stripKoreanRequestEnding(value) {
+  return trimTerminalPunctuation(value)
+    .replace(/\s*(알려|설명|추천|제안|정리|작성)\s*해?\s*(줘|봐|주세요)?$/i, '')
+    .trim();
+}
+
+function extractKoreanWebServiceIdeaSubject(value) {
+  const subject = stripKoreanRequestEnding(value)
+    .replace(/웹\s*(서비스|사이트)|웹서비스|웹사이트/gi, '')
+    .replace(/아이디어/gi, '')
+    .replace(/해결할\s*수\s*있는|해결할수있는|해결하기\s*위한|위한/gi, '')
+    .replace(/\s*(을|를|에\s*대한)\s*$/g, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+
+  return subject;
+}
+
+function buildKoreanWebServiceIdeaRewrite(basePrompt) {
+  const subject = extractKoreanWebServiceIdeaSubject(basePrompt);
+
+  if (!subject) {
+    return '실현 가능한 웹서비스 아이디어를 추천해줘. 아이디어별 대상 사용자, 해결하는 문제, 차별화 포인트, 수익화 가능성, 실행 난이도를 함께 비교해줘.';
+  }
+
+  return `${subject} 문제를 줄이는 웹서비스 아이디어를 추천해줘. 아이디어별 대상 사용자, 핵심 기능, 차별화 포인트, 수익화 가능성, 실행 난이도를 함께 비교해줘.`;
+}
+
+function buildKoreanGrowthRewrite(basePrompt) {
+  const serviceMatch = basePrompt.match(/^(.+?)\s*(사용자\s*수|유저\s*수)/i);
+  const serviceName = serviceMatch?.[1]?.trim();
+
+  if (serviceName) {
+    return `${serviceName}의 사용자 수를 늘리기 위한 성장 전략을 제안해줘. 전략별 우선순위, 실행 계획, 필요한 지표, 예상 리스크를 함께 설명해줘.`;
+  }
+
+  return `${basePrompt}. 성장 전략별 우선순위, 실행 계획, 필요한 지표, 예상 리스크를 함께 설명해줘.`;
+}
+
+function buildKoreanAnalysisRewrite(basePrompt) {
+  const subject = stripKoreanRequestEnding(basePrompt)
+    .replace(/어떤\s*분석을\s*하면\s*좋을까.*$/i, '')
+    .replace(/하려고\s*하는데.*$/i, '')
+    .trim();
+
+  if (subject) {
+    return `${subject}에 적합한 분석 방법을 추천해줘. 분석 방법별 목적, 필요한 데이터, 기대 인사이트, 우선순위를 함께 설명해줘.`;
+  }
+
+  return `${basePrompt}. 분석 방법별 목적, 필요한 데이터, 기대 인사이트, 우선순위를 함께 설명해줘.`;
+}
+
 function buildMeaningfulFallbackRewrite(originalPrompt, clientLanguage) {
   const useKorean = hasKoreanText(originalPrompt) || /^ko\b/i.test(normalizeClientLanguage(clientLanguage));
   const basePrompt = trimTerminalPunctuation(originalPrompt);
@@ -543,16 +596,16 @@ function buildMeaningfulFallbackRewrite(originalPrompt, clientLanguage) {
   if (!basePrompt) return '';
 
   if (useKorean) {
-    if (/웹\s*서비스|서비스/i.test(basePrompt) && /아이디어|추천|제안/i.test(basePrompt)) {
-      return `${basePrompt}. 각 아이디어의 대상 사용자, 해결하는 문제, 차별화 포인트, 수익화 가능성, 실행 난이도를 함께 설명해줘.`;
+    if (/웹\s*(서비스|사이트)|웹서비스|웹사이트|서비스/i.test(basePrompt) && /아이디어|추천|제안/i.test(basePrompt)) {
+      return buildKoreanWebServiceIdeaRewrite(basePrompt);
     }
 
     if (/사용자\s*수|유저\s*수|늘리|성장/i.test(basePrompt)) {
-      return `${basePrompt}. 성장 전략별 우선순위, 실행 계획, 필요한 지표, 예상 리스크를 함께 설명해줘.`;
+      return buildKoreanGrowthRewrite(basePrompt);
     }
 
     if (/분석/i.test(basePrompt)) {
-      return `${basePrompt}. 분석 방법별 목적, 필요한 데이터, 기대 인사이트, 우선순위를 함께 설명해줘.`;
+      return buildKoreanAnalysisRewrite(basePrompt);
     }
 
     if (/아이디어|추천|제안/i.test(basePrompt) && /해결|문제|개선|줄이|늘리|성장/i.test(basePrompt)) {
@@ -655,6 +708,7 @@ async function compactShortRewrite({ client, model, originalPrompt, improvedProm
           `Write in ${useKorean ? 'Korean' : 'English'}.`,
           `Keep it to ${maxInstruction}.`,
           'The compact prompt must still be meaningfully more useful than the original.',
+          'Do not just append a second sentence to the original. Rewrite the prompt naturally so the added requirements feel integrated.',
           isWeakRewrite
             ? 'Keep two to four directly relevant answer-quality requirements.'
             : 'Keep one directly relevant answer-quality requirement when it improves usefulness.',

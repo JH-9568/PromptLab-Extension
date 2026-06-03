@@ -14,6 +14,18 @@ const cases = [
     ]
   },
   {
+    name: 'forgetfulness_web_service',
+    originalPrompt: '건망증을 해결할수있는 웹사이트 아이디어 추천해봐',
+    mustNotMatch: /^건망증을 해결할수있는 웹사이트 아이디어 추천해봐\.\s*각\s*아이디어|건망증을\s*문제/,
+    mustMatchAll: [
+      /건망증/,
+      /웹\s*(서비스|사이트)|웹서비스|웹사이트/,
+      /대상\s*사용자/,
+      /핵심\s*기능|차별화/,
+      /수익화|실행\s*난이도|난이도/
+    ]
+  },
+  {
     name: 'very_vague_this',
     originalPrompt: '이거 설명해줘',
     mustMatch: /답변하지\s*말고|물어|질문|무엇|어떤|주제|내용/
@@ -59,7 +71,7 @@ const cases = [
       /예술/,
       /작동\s*원리|실행\s*방식|실행\s*방법|실천\s*방법|적용\s*방법/,
       /기대\s*효과|효과|성과/,
-      /한계|리스크|주의|현실/
+      /한계|리스크|주의|현실|지속\s*가능성|평가/
     ]
   }
 ];
@@ -103,6 +115,11 @@ async function main() {
       && !hasExplicitQuantity(testCase.originalPrompt)
       && hasExplicitQuantity(output)) {
       failures.push('added an arbitrary exact quantity');
+    }
+
+    if (result.improvement_type !== 'ask_clarifying_question'
+      && result.after_analysis.specificity_score <= result.before_analysis.specificity_score) {
+      failures.push(`score did not increase (${result.before_analysis.specificity_score} -> ${result.after_analysis.specificity_score})`);
     }
 
     if (failures.length > 0) failed += 1;
