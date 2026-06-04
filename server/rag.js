@@ -760,6 +760,46 @@ async function compactShortRewrite({ client, model, originalPrompt, improvedProm
   return compactPrompt || null;
 }
 
+async function repairPromptLanguage({ client, model, originalPrompt, improvedPrompt }) {
+  const originalIsKorean = hasKoreanText(originalPrompt);
+  const response = await createCompactChatCompletion({
+    client,
+    model,
+    messages: [
+      {
+        role: 'system',
+        content: [
+          'You are a language-preservation editor.',
+          'Return only one improved prompt, not an answer or explanation.',
+          'The original prompt language is authoritative. Ignore the candidate rewrite language.',
+          originalIsKorean
+            ? 'Write the final prompt only in Korean.'
+            : 'Write the final prompt in the same language as the original prompt. Do not use Korean or Hangul characters.',
+          'Preserve the useful details and intent from the candidate rewrite.',
+          'Keep the result concise and natural.'
+        ].join(' ')
+      },
+      {
+        role: 'user',
+        content: [
+          'Original prompt:',
+          originalPrompt,
+          '',
+          'Candidate rewrite with the wrong language:',
+          improvedPrompt,
+          '',
+          'Rewrite the candidate in the original prompt language now.'
+        ].join('\n')
+      }
+    ]
+  });
+
+  const repairedPrompt = normalizeInstructionVoice(
+    sanitizeImprovedPrompt(response.choices?.[0]?.message?.content)
+  );
+  return repairedPrompt || null;
+}
+
 async function reviseGeneratedPayloadIfNeeded({
   client,
   model,
@@ -809,13 +849,36 @@ async function reviseGeneratedPayloadIfNeeded({
     }
   }
 
+  let usedOriginalLanguageFallback = false;
+  if (hasPromptLanguageMismatch(originalPrompt, revisedPrompt)) {
+    for (let attempt = 0; attempt < 2 && hasPromptLanguageMismatch(originalPrompt, revisedPrompt); attempt += 1) {
+      const languageRepairedPrompt = await repairPromptLanguage({
+        client,
+        model,
+        originalPrompt,
+        improvedPrompt: revisedPrompt
+      });
+
+      if (languageRepairedPrompt) {
+        revisedPrompt = languageRepairedPrompt;
+      }
+    }
+
+    if (hasPromptLanguageMismatch(originalPrompt, revisedPrompt)) {
+      revisedPrompt = String(originalPrompt || '').trim();
+      usedOriginalLanguageFallback = true;
+    }
+  }
+
   if (!revisedPrompt) return payload;
 
   return {
     ...payload,
     improved_prompt: revisedPrompt,
     after_analysis: mergePromptAnalysis(null, revisedPrompt, attachmentContext),
-    improvement_type: payload.improvement_type === 'ask_clarifying_question'
+    improvement_type: usedOriginalLanguageFallback
+      ? 'minimal_cleanup'
+      : payload.improvement_type === 'ask_clarifying_question'
       ? 'clarify_goal'
       : qualityIssues.includes('under_improved_rewrite')
         || qualityIssues.includes('invented_exact_count')
@@ -825,7 +888,9 @@ async function reviseGeneratedPayloadIfNeeded({
         || qualityIssues.includes('prompt_language_mismatch')
         ? 'add_output_structure'
       : payload.improvement_type,
-    improvement_reason: qualityIssues.includes('clarification_first_for_answerable_prompt')
+    improvement_reason: usedOriginalLanguageFallback
+      ? '개선본의 언어가 원문과 달라 잘못된 언어 결과 대신 원문을 유지했습니다.'
+      : qualityIssues.includes('clarification_first_for_answerable_prompt')
       ? '2차 검토에서 답변 가능한 요청이 추가 질문으로 바뀌지 않도록 수정했습니다.'
       : qualityIssues.includes('invented_exact_count')
         ? '2차 검토에서 임의 개수를 제거하고 답변 구조를 보강했습니다.'
@@ -976,6 +1041,7 @@ module.exports = {
   generateImprovedPrompt,
   _test: {
     hasPromptLanguageMismatch,
+    repairPromptLanguage,
     shouldUseKorean
   }
 };
