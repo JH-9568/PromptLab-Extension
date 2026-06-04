@@ -295,6 +295,33 @@ function hasKoreanText(value) {
   return /[가-힣]/.test(String(value || ''));
 }
 
+function hasClearNonKoreanText(value) {
+  const text = String(value || '');
+  if (/[\u3040-\u30ff\u3400-\u4dbf\u4e00-\u9fff]/u.test(text)) return true;
+
+  const latinWords = text.match(/[A-Za-zÀ-ÖØ-öø-ÿ]+/g) || [];
+  return latinWords.length >= 2
+    || /\b(ask|compare|create|describe|explain|help|how|recommend|show|summarize|tell|what|why|write)\b/i.test(text);
+}
+
+function shouldUseKorean(originalPrompt, clientLanguage) {
+  if (hasKoreanText(originalPrompt)) return true;
+  if (hasClearNonKoreanText(originalPrompt)) return false;
+  return /^ko\b/i.test(normalizeClientLanguage(clientLanguage));
+}
+
+function hasPromptLanguageMismatch(originalPrompt, improvedPrompt) {
+  if (hasKoreanText(originalPrompt)) {
+    return !hasKoreanText(improvedPrompt);
+  }
+
+  if (hasClearNonKoreanText(originalPrompt)) {
+    return hasKoreanText(improvedPrompt);
+  }
+
+  return false;
+}
+
 function isLowInformationPrompt(value) {
   const compactPrompt = String(value || '')
     .trim()
@@ -509,6 +536,10 @@ function isUnderImprovedRewrite(originalPrompt, improvedPrompt) {
 function getQualityIssues(originalPrompt, improvedPrompt) {
   const issues = [];
 
+  if (hasPromptLanguageMismatch(originalPrompt, improvedPrompt)) {
+    issues.push('prompt_language_mismatch');
+  }
+
   if (isGenerallyAnswerablePrompt(originalPrompt) && hasClarificationFirstRewrite(improvedPrompt)) {
     issues.push('clarification_first_for_answerable_prompt');
   }
@@ -582,7 +613,7 @@ function trimGuidelineContent(value) {
 
 function buildFallbackPrompt({ originalPrompt, clientLanguage }) {
   if (isLowInformationPrompt(originalPrompt)) {
-    return hasKoreanText(originalPrompt) || /^ko\b/i.test(normalizeClientLanguage(clientLanguage))
+    return shouldUseKorean(originalPrompt, clientLanguage)
       ? '제가 원하는 답변을 받을 수 있도록 주제, 목표, 원하는 출력 형식, 중요한 조건을 간단히 질문한 뒤 최종 프롬프트를 작성해주세요.'
       : 'Ask me briefly for the topic, goal, desired output format, and important constraints, then write a final usable prompt.';
   }
@@ -591,7 +622,7 @@ function buildFallbackPrompt({ originalPrompt, clientLanguage }) {
 }
 
 function buildVeryVaguePrompt({ originalPrompt, clientLanguage, attachmentContext }) {
-  const useKorean = hasKoreanText(originalPrompt) || /^ko\b/i.test(normalizeClientLanguage(clientLanguage));
+  const useKorean = shouldUseKorean(originalPrompt, clientLanguage);
 
   if (hasAttachmentContext(attachmentContext)) {
     return useKorean
@@ -637,11 +668,12 @@ function shouldCompactShortRewrite(originalPrompt, improvedPrompt) {
 }
 
 async function compactShortRewrite({ client, model, originalPrompt, improvedPrompt, clientLanguage, attachmentContext, qualityIssues = [] }) {
-  const useKorean = hasKoreanText(originalPrompt) || /^ko\b/i.test(normalizeClientLanguage(clientLanguage));
+  const useKorean = shouldUseKorean(originalPrompt, clientLanguage);
   const isWeakRewrite = qualityIssues.includes('under_improved_rewrite')
     || qualityIssues.includes('append_style_rewrite')
     || qualityIssues.includes('weak_web_service_idea_rewrite')
-    || qualityIssues.includes('awkward_language_pattern');
+    || qualityIssues.includes('awkward_language_pattern')
+    || qualityIssues.includes('prompt_language_mismatch');
   const maxInstruction = useKorean
     ? (isWeakRewrite ? '220자 이내의 한국어 1~2문장' : '120자 이내의 한국어 한 문장')
     : (isWeakRewrite ? '1 or 2 English sentences under 55 words' : 'one English sentence under 30 words');
@@ -664,7 +696,9 @@ async function compactShortRewrite({ client, model, originalPrompt, improvedProm
           'You are also a critic that fixes clarification-first rewrites when the original prompt is generally answerable.',
           'Return only the improved prompt, not an answer.',
           'Preserve the original user intent.',
-          `Write in ${useKorean ? 'Korean' : 'English'}.`,
+          useKorean
+            ? 'Write in Korean.'
+            : 'Write in the same language as the original prompt. If the original prompt is English, write in English even when the UI language is Korean.',
           `Keep it to ${maxInstruction}.`,
           'The compact prompt must still be meaningfully more useful than the original.',
           'Do not just append a second sentence to the original. Rewrite the prompt naturally so the added requirements feel integrated.',
@@ -686,6 +720,9 @@ async function compactShortRewrite({ client, model, originalPrompt, improvedProm
             : '',
           qualityIssues.includes('awkward_language_pattern')
             ? 'The current rewrite contains awkward or broken Korean. Rewrite the entire prompt naturally instead of patching the broken phrase.'
+            : '',
+          qualityIssues.includes('prompt_language_mismatch')
+            ? 'The current rewrite uses a different language from the original prompt. Rewrite it in the original prompt language.'
             : '',
           qualityIssues.includes('invented_exact_count')
             ? 'The current rewrite added an arbitrary exact quantity. Remove the exact quantity unless the original prompt requested one.'
@@ -752,6 +789,7 @@ async function reviseGeneratedPayloadIfNeeded({
     'invented_exact_count',
     'append_style_rewrite',
     'awkward_language_pattern',
+    'prompt_language_mismatch',
     'weak_web_service_idea_rewrite'
   ].includes(issue));
 
@@ -784,6 +822,7 @@ async function reviseGeneratedPayloadIfNeeded({
         || qualityIssues.includes('append_style_rewrite')
         || qualityIssues.includes('weak_web_service_idea_rewrite')
         || qualityIssues.includes('awkward_language_pattern')
+        || qualityIssues.includes('prompt_language_mismatch')
         ? 'add_output_structure'
       : payload.improvement_type,
     improvement_reason: qualityIssues.includes('clarification_first_for_answerable_prompt')
@@ -794,6 +833,8 @@ async function reviseGeneratedPayloadIfNeeded({
         ? '2차 검토에서 덧붙이기식 문장을 자연스러운 개선 프롬프트로 재작성했습니다.'
       : qualityIssues.includes('awkward_language_pattern')
         ? '2차 검토에서 어색한 문장 조합을 자연스러운 개선 프롬프트로 재작성했습니다.'
+      : qualityIssues.includes('prompt_language_mismatch')
+        ? '2차 검토에서 개선 프롬프트의 언어를 원문 언어와 일치시켰습니다.'
       : qualityIssues.includes('weak_web_service_idea_rewrite')
         ? '2차 검토에서 웹서비스 아이디어 답변에 필요한 평가 축을 보강했습니다.'
       : qualityIssues.includes('under_improved_rewrite')
@@ -853,6 +894,9 @@ async function generateImprovedPrompt({ originalPrompt, taskCategory, clientLang
             'Task category is only a hint; prioritize the original prompt.',
             'Write the improved prompt as a user instruction addressed to an AI assistant.',
             'The improved_prompt must use the same language as the original prompt unless the user explicitly asks for another language.',
+            shouldUseKorean(originalPrompt, normalizedClientLanguage)
+              ? 'The original prompt is Korean. Write improved_prompt in Korean.'
+              : 'The original prompt is not Korean. Do not translate improved_prompt into Korean just because the UI language is Korean.',
             'The improvement_reason is internal analytics metadata and must always be written in Korean, regardless of the original prompt language.',
             'Avoid assistant-voice phrases such as "I will", "제가", "드리겠습니다", or "알려주시면".',
             'Choose exactly one improvement_type: minimal_cleanup, clarify_goal, add_context_request, add_output_structure, add_constraints, add_examples_or_references, ask_clarifying_question, already_strong.',
@@ -929,5 +973,9 @@ async function generateImprovedPrompt({ originalPrompt, taskCategory, clientLang
 }
 
 module.exports = {
-  generateImprovedPrompt
+  generateImprovedPrompt,
+  _test: {
+    hasPromptLanguageMismatch,
+    shouldUseKorean
+  }
 };

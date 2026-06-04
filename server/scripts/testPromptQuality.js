@@ -9,6 +9,17 @@ const guidelineContent = fs.readFileSync(path.join(__dirname, '../guidelines/gen
 
 const cases = [
   {
+    name: 'english_prompt_with_korean_ui',
+    originalPrompt: 'Recommend a web service idea that helps people manage forgetfulness.',
+    clientLanguage: 'ko-KR',
+    mustNotMatch: /[가-힣]/,
+    mustMatchAll: [
+      /web\s*service/i,
+      /forgetfulness|memory/i,
+      /user|feature|differentiation|benefit|implementation/i
+    ]
+  },
+  {
     name: 'web_service_ideas',
     originalPrompt: '웹 서비스 아이디어 추천해줘',
     mustNotMatch: /먼저|사용자에게|물어|질문|알려\s*주시면|제공해\s*주시면/,
@@ -147,7 +158,7 @@ async function main() {
     const result = await generateImprovedPrompt({
       originalPrompt: testCase.originalPrompt,
       taskCategory: 'general',
-      clientLanguage: 'ko',
+      clientLanguage: testCase.clientLanguage || 'ko',
       guidelineContent,
       attachmentContext: { has_attachment: false, attachment_count: 0 }
     });
