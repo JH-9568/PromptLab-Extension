@@ -111,6 +111,10 @@ function supabaseUrl(query = '') {
   return `${baseUrl}/rest/v1/${SUPABASE_TABLE}${query}`;
 }
 
+function eqFilter(value) {
+  return `eq.${encodeURIComponent(String(value || ''))}`;
+}
+
 async function requestSupabase(url, options) {
   const response = await fetch(url, options);
   const text = await response.text();
@@ -124,6 +128,25 @@ async function requestSupabase(url, options) {
   return data;
 }
 
+async function findExistingSupabaseLog(logEntry) {
+  if (!logEntry.user_id || !logEntry.session_id) return null;
+
+  const query = [
+    `user_id=${eqFilter(logEntry.user_id)}`,
+    `session_id=${eqFilter(logEntry.session_id)}`,
+    'select=id',
+    'order=created_at.desc',
+    'limit=1'
+  ].join('&');
+
+  const rows = await requestSupabase(supabaseUrl(`?${query}`), {
+    method: 'GET',
+    headers: supabaseHeaders()
+  });
+
+  return Array.isArray(rows) && rows.length > 0 ? rows[0] : null;
+}
+
 async function readSupabaseLogs() {
   return requestSupabase(supabaseUrl('?select=*&order=created_at.desc'), {
     method: 'GET',
@@ -131,17 +154,33 @@ async function readSupabaseLogs() {
   });
 }
 
-async function appendSupabaseLog(payload) {
-  const logEntry = toLogEntry(payload);
+async function writeSupabaseLog(logEntry) {
+  const existing = await findExistingSupabaseLog(logEntry);
 
-  try {
-    const [entry] = await requestSupabase(supabaseUrl(), {
-      method: 'POST',
+  if (existing?.id) {
+    const [entry] = await requestSupabase(supabaseUrl(`?id=${eqFilter(existing.id)}`), {
+      method: 'PATCH',
       headers: supabaseHeaders('return=representation'),
       body: JSON.stringify(logEntry)
     });
 
     return entry;
+  }
+
+  const [entry] = await requestSupabase(supabaseUrl(), {
+    method: 'POST',
+    headers: supabaseHeaders('return=representation'),
+    body: JSON.stringify(logEntry)
+  });
+
+  return entry;
+}
+
+async function appendSupabaseLog(payload) {
+  const logEntry = toLogEntry(payload);
+
+  try {
+    return writeSupabaseLog(logEntry);
   } catch (error) {
     if (!/improvement_(type|reason)|schema cache|column/i.test(error.message)) {
       throw error;
@@ -154,11 +193,7 @@ async function appendSupabaseLog(payload) {
       ...legacyEntry
     } = logEntry;
 
-    const [entry] = await requestSupabase(supabaseUrl(), {
-      method: 'POST',
-      headers: supabaseHeaders('return=representation'),
-      body: JSON.stringify(legacyEntry)
-    });
+    const entry = await writeSupabaseLog(legacyEntry);
 
     return {
       ...entry,
@@ -197,10 +232,23 @@ async function appendLog(payload) {
     created_at: new Date().toISOString(),
     ...toLogEntry(payload)
   };
+  const existingIndex = logs.findIndex((log) => (
+    log.user_id === entry.user_id && log.session_id === entry.session_id
+  ));
 
-  logs.push(entry);
+  if (existingIndex >= 0) {
+    logs[existingIndex] = {
+      ...logs[existingIndex],
+      ...entry,
+      id: logs[existingIndex].id,
+      created_at: logs[existingIndex].created_at
+    };
+  } else {
+    logs.push(entry);
+  }
+
   await fs.writeFile(LOG_FILE, `${JSON.stringify(logs, null, 2)}\n`);
-  return entry;
+  return existingIndex >= 0 ? logs[existingIndex] : entry;
 }
 
 function escapeCsvValue(value) {
