@@ -1,6 +1,15 @@
 (() => {
   const SERVER_URL = 'https://promptlab-server.onrender.com';
   const STORAGE_USER_ID_KEY = 'promptlab_user_id';
+  const STORAGE_BORDER_COLOR_KEY = 'promptlab_border_color';
+  const DEFAULT_BORDER_COLOR = 'purple';
+  const BORDER_COLOR_PALETTE = {
+    purple: { accent: '168, 85, 247', light: '216, 180, 254', dark: '88, 28, 135' },
+    blue: { accent: '59, 130, 246', light: '147, 197, 253', dark: '30, 64, 175' },
+    green: { accent: '16, 185, 129', light: '110, 231, 183', dark: '4, 120, 87' },
+    orange: { accent: '249, 115, 22', light: '253, 186, 116', dark: '194, 65, 12' },
+    pink: { accent: '236, 72, 153', light: '249, 168, 212', dark: '157, 23, 77' }
+  };
   const PLATFORM_CONFIG = {
     chatgpt: {
       hosts: ['chatgpt.com', 'chat.openai.com'],
@@ -66,16 +75,15 @@
     ]
   };
   const DEFAULT_TASK_CATEGORY = 'etc';
-  const ANSWER_STABLE_DELAY_MS = 2000;
   const TARGET_PLATFORM = detectTargetPlatform();
   const CLIENT_LANGUAGE = navigator.languages?.[0] || navigator.language || 'en';
+  const IS_MAC = /mac|iphone|ipad|ipod/i.test(navigator.platform || navigator.userAgent || '');
   const i18n = (key, substitutions) => chrome.i18n.getMessage(key, substitutions) || key;
   const UI_TEXT = {
     inputNotFound: i18n('inputNotFound'),
     noImprovedPrompt: i18n('noImprovedPrompt'),
     emptyResult: i18n('emptyResult'),
     improvedPromptLabel: i18n('improvedPromptLabel'),
-    ratingPrompt: i18n('ratingPrompt'),
     busy: i18n('busy'),
     improveButton: i18n('improveButton'),
     improveAvailable: i18n('improveAvailable'),
@@ -85,15 +93,15 @@
     ready: i18n('ready'),
     serverError: i18n('serverError'),
     analyzeFirst: i18n('analyzeFirst'),
-    savingRating: (score) => i18n('savingRating', [String(score)]),
-    savedRating: (score) => i18n('savedRating', [String(score)]),
     logError: i18n('logError'),
     subtitle: i18n('subtitle'),
     currentPrompt: i18n('currentPrompt'),
     reloadCurrentPrompt: i18n('reloadCurrentPrompt'),
     insertImproved: i18n('insertImproved'),
     keepOriginal: i18n('keepOriginal'),
-    ratingTitle: i18n('ratingTitle')
+    shortcutHint: i18n('shortcutHint', [getShortcutLabel()]),
+    undoImprovement: i18n('undoImprovement'),
+    improvedApplied: i18n('improvedApplied')
   };
 
   function detectTargetPlatform() {
@@ -118,8 +126,6 @@
     taskCategory: DEFAULT_TASK_CATEGORY,
     response: null,
     usedImproved: null,
-    satisfactionScore: null,
-    awaitingRating: false,
     assistantMessageBaseline: 0,
     assistantTextBaseline: '',
     answerLastSnapshot: '',
@@ -128,8 +134,18 @@
     answerCheckTimer: null,
     answerCheckStartedAt: 0,
     promptWatchTimer: null,
-    answerObserver: null
+    answerObserver: null,
+    inlineImproving: false,
+    overlayVisible: false,
+    undoTimer: null,
+    promptUpdateRaf: null,
+    promptActivityListenersBound: false,
+    borderColor: DEFAULT_BORDER_COLOR
   };
+
+  function getShortcutLabel() {
+    return IS_MAC ? 'Command+Shift+.' : 'Ctrl+Shift+.';
+  }
 
   function createId(prefix) {
     const id = crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random().toString(16).slice(2)}`;
@@ -148,6 +164,27 @@
         chrome.storage.local.set({ [STORAGE_USER_ID_KEY]: userId }, () => resolve(userId));
       });
     });
+  }
+
+  function getStoredBorderColor() {
+    return new Promise((resolve) => {
+      chrome.storage.local.get([STORAGE_BORDER_COLOR_KEY], (result) => {
+        const color = result[STORAGE_BORDER_COLOR_KEY];
+        resolve(BORDER_COLOR_PALETTE[color] ? color : DEFAULT_BORDER_COLOR);
+      });
+    });
+  }
+
+  function applyBorderColor(color) {
+    const selectedColor = BORDER_COLOR_PALETTE[color] ? color : DEFAULT_BORDER_COLOR;
+    const palette = BORDER_COLOR_PALETTE[selectedColor];
+    state.borderColor = selectedColor;
+
+    const root = document.querySelector('#promptlab-root');
+    if (!root) return;
+    root.style.setProperty('--promptlab-accent-rgb', palette.accent);
+    root.style.setProperty('--promptlab-accent-light-rgb', palette.light);
+    root.style.setProperty('--promptlab-accent-dark-rgb', palette.dark);
   }
 
   async function sha256(text) {
@@ -213,28 +250,6 @@
     );
   }
 
-  function isAssistantAnswerStable() {
-    const snapshot = getAssistantTextSnapshot();
-    const hasNewAnswer = (
-      getAssistantMessageCount() > state.assistantMessageBaseline
-      || snapshot !== state.assistantTextBaseline
-    );
-
-    if (!hasNewAnswer) {
-      state.answerLastSnapshot = '';
-      state.answerStableSince = 0;
-      return false;
-    }
-
-    if (snapshot !== state.answerLastSnapshot) {
-      state.answerLastSnapshot = snapshot;
-      state.answerStableSince = Date.now();
-      return false;
-    }
-
-    return Date.now() - state.answerStableSince >= ANSWER_STABLE_DELAY_MS;
-  }
-
   function getEditableTarget(input) {
     if (!input) return null;
     if ('value' in input) return input;
@@ -253,6 +268,55 @@
     return input.closest('form, [role="form"], main, [data-testid*="composer" i], [class*="composer" i]')
       || input.parentElement
       || document.body;
+  }
+
+  function getPromptOverlayTarget(input) {
+    if (!input) return null;
+
+    const editable = getEditableTarget(input);
+    const editableRect = (editable || input).getBoundingClientRect();
+    const namedFrame = input.closest('form, [role="form"], [data-testid*="composer" i], [class*="composer" i], rich-textarea');
+    const candidates = [];
+
+    if (namedFrame) candidates.push(namedFrame);
+    if (editable) candidates.push(editable);
+    candidates.push(input);
+
+    let ancestor = editable || input;
+    for (let depth = 0; ancestor && ancestor !== document.body && depth < 9; depth += 1) {
+      candidates.push(ancestor);
+      ancestor = ancestor.parentElement;
+    }
+
+    const uniqueCandidates = Array.from(new Set(candidates)).filter(Boolean);
+    const maxHeight = Math.max(170, editableRect.height * 1.85);
+    let bestTarget = editable || input;
+    let bestScore = 0;
+
+    for (const candidate of uniqueCandidates) {
+      const rect = candidate.getBoundingClientRect();
+      if (!rect.width || !rect.height) continue;
+      if (rect.height > maxHeight || rect.height < editableRect.height * 0.55) continue;
+      if (rect.width < editableRect.width * 0.92) continue;
+      if (rect.width > window.innerWidth - 8) continue;
+      if (rect.top > editableRect.top + 28 || rect.bottom < editableRect.bottom - 18) continue;
+      if (Math.abs(rect.bottom - editableRect.bottom) > 92) continue;
+
+      const style = window.getComputedStyle(candidate);
+      if (style.visibility === 'hidden' || style.display === 'none') continue;
+
+      const widthGain = rect.width - editableRect.width;
+      const heightPenalty = Math.max(0, rect.height - editableRect.height) * 0.5;
+      const semanticBonus = /form|composer|rich-textarea/i.test(`${candidate.tagName} ${candidate.className} ${candidate.getAttribute('data-testid') || ''}`) ? 160 : 0;
+      const score = rect.width + widthGain + semanticBonus - heightPenalty;
+
+      if (score > bestScore) {
+        bestScore = score;
+        bestTarget = candidate;
+      }
+    }
+
+    return bestTarget;
   }
 
   function isVisibleElement(element) {
@@ -366,23 +430,6 @@
     return true;
   }
 
-  function analysisRows(analysis) {
-    const fields = [
-      ['Goal', 'has_goal'],
-      ['Context', 'has_context'],
-      ['Format', 'has_format'],
-      ['Constraint', 'has_constraint'],
-      ['Reference', 'has_reference']
-    ];
-
-    return fields.map(([label, key]) => `
-      <div class="promptlab-signal ${analysis?.[key] ? 'is-on' : ''}">
-        <span>${label}</span>
-        <strong>${analysis?.[key] ? 'Yes' : 'No'}</strong>
-      </div>
-    `).join('');
-  }
-
   function escapeHtml(value) {
     return String(value || '')
       .replace(/&/g, '&amp;')
@@ -403,71 +450,18 @@
       return;
     }
 
-    const before = state.response.before_analysis || {};
-    const after = state.response.after_analysis || {};
     const guidelineFiles = state.response.retrieved_guidelines?.files || state.response.guideline_files || [];
 
     result.innerHTML = `
-      <div class="promptlab-score-grid">
-        <div>
-          <span>Before</span>
-          <strong>${before.specificity_score ?? 0}</strong>
-        </div>
-        <div>
-          <span>After</span>
-          <strong>${after.specificity_score ?? 0}</strong>
-        </div>
-      </div>
       <div class="promptlab-guidelines">
         <span>Guidelines</span>
         <strong>${escapeHtml(guidelineFiles.join(', ') || 'general.md')}</strong>
-      </div>
-      <div class="promptlab-analysis">
-        <div>
-          <h3>Before</h3>
-          ${analysisRows(before)}
-        </div>
-        <div>
-          <h3>After</h3>
-          ${analysisRows(after)}
-        </div>
       </div>
       <label class="promptlab-label" for="promptlab-improved">${escapeHtml(UI_TEXT.improvedPromptLabel)}</label>
       <textarea id="promptlab-improved" class="promptlab-improved" readonly>${escapeHtml(state.improvedPrompt)}</textarea>
     `;
 
     actions.hidden = false;
-  }
-
-  function setSelectedRating(score) {
-    document.querySelectorAll('#promptlab-rating-toast button[data-score]').forEach((button) => {
-      const isSelected = Number(button.dataset.score) === score;
-      button.classList.toggle('is-selected', isSelected);
-      button.setAttribute('aria-pressed', String(isSelected));
-    });
-  }
-
-  function setRatingStatus(message, isError = false) {
-    const status = document.querySelector('#promptlab-rating-status');
-    if (!status) return;
-    status.textContent = message || '';
-    status.classList.toggle('is-error', Boolean(isError));
-  }
-
-  function showRatingPrompt() {
-    if (!state.awaitingRating || state.satisfactionScore) return;
-    const ratingToast = document.querySelector('#promptlab-rating-toast');
-    if (!ratingToast) return;
-    ratingToast.hidden = false;
-    setSelectedRating(null);
-    setRatingStatus(UI_TEXT.ratingPrompt);
-  }
-
-  function hideRatingPrompt() {
-    const ratingToast = document.querySelector('#promptlab-rating-toast');
-    if (ratingToast) ratingToast.hidden = true;
-    setSelectedRating(null);
-    setRatingStatus('');
   }
 
   function stopAnswerCheck() {
@@ -481,50 +475,6 @@
       state.answerObserver.disconnect();
       state.answerObserver = null;
     }
-  }
-
-  function startAnswerCheck() {
-    stopAnswerCheck();
-
-    if (!state.awaitingRating || state.satisfactionScore) return;
-
-    const checkForAnswer = () => {
-      if (!state.awaitingRating || state.satisfactionScore) {
-        stopAnswerCheck();
-        return;
-      }
-
-      if (isAssistantAnswerStable()) {
-        showRatingPrompt();
-        stopAnswerCheck();
-      }
-    };
-
-    state.answerCheckStartedAt = Date.now();
-    state.answerObserver = new MutationObserver(checkForAnswer);
-    state.answerObserver.observe(document.body, {
-      childList: true,
-      subtree: true,
-      characterData: true
-    });
-
-    state.answerCheckTimer = setInterval(() => {
-      if (!state.awaitingRating || state.satisfactionScore) {
-        stopAnswerCheck();
-        return;
-      }
-
-      if (isAssistantAnswerStable()) {
-        showRatingPrompt();
-        stopAnswerCheck();
-        return;
-      }
-
-      if (Date.now() - state.answerCheckStartedAt > 120000) {
-        state.awaitingRating = false;
-        stopAnswerCheck();
-      }
-    }, 1500);
   }
 
   function setStatus(message, isError = false) {
@@ -556,32 +506,48 @@
 
   function updateFabCue() {
     const button = document.querySelector('#promptlab-fab');
-    if (!button) return;
+    if (!button) {
+      updateInputOverlay();
+      return;
+    }
 
     updateFabPlacement();
     const prompt = getPromptText(findPromptInput());
 
-    if (
-      state.awaitingRating
-      && !state.satisfactionScore
-      && !hasNewAssistantAnswer()
-      && prompt
-      && state.activePrompt
-      && prompt !== state.activePrompt
-    ) {
+    if (prompt && state.activePrompt && prompt !== state.activePrompt && !hasNewAssistantAnswer()) {
       resetPromptSession();
       renderResult();
     }
 
-    const shouldCue = Boolean(prompt) && !state.isOpen && !state.response && !state.awaitingRating;
+    const shouldCue = Boolean(prompt) && !state.isOpen && !state.response;
     button.classList.toggle('has-prompt', shouldCue);
     button.setAttribute('aria-label', shouldCue ? UI_TEXT.improveAvailable : UI_TEXT.openPromptLab);
+    updateInputOverlay();
   }
 
   function startPromptWatch() {
     clearInterval(state.promptWatchTimer);
-    state.promptWatchTimer = setInterval(updateFabCue, 800);
+    state.promptWatchTimer = setInterval(schedulePromptRefresh, 350);
     updateFabCue();
+  }
+
+  function schedulePromptRefresh() {
+    if (state.promptUpdateRaf) return;
+
+    state.promptUpdateRaf = requestAnimationFrame(() => {
+      state.promptUpdateRaf = null;
+      updateFabCue();
+      updateUndoToastPosition();
+    });
+  }
+
+  function bindPromptActivityListeners() {
+    if (state.promptActivityListenersBound) return;
+    state.promptActivityListenersBound = true;
+
+    ['focusin', 'input', 'keyup', 'compositionend', 'pointerup', 'selectionchange'].forEach((eventName) => {
+      document.addEventListener(eventName, schedulePromptRefresh, true);
+    });
   }
 
   function resetPromptSession() {
@@ -591,13 +557,12 @@
     state.taskCategory = DEFAULT_TASK_CATEGORY;
     state.response = null;
     state.usedImproved = null;
-    state.satisfactionScore = null;
-    state.awaitingRating = false;
     state.assistantMessageBaseline = getAssistantMessageCount();
     state.assistantTextBaseline = getAssistantTextSnapshot();
     state.activePrompt = '';
+    state.inlineImproving = false;
+    hideUndoToast();
     stopAnswerCheck();
-    hideRatingPrompt();
     updateFabCue();
   }
 
@@ -607,11 +572,172 @@
     state.improvedPrompt = '';
     state.response = null;
     state.usedImproved = null;
-    state.satisfactionScore = null;
-    state.awaitingRating = false;
+    state.inlineImproving = false;
+    hideUndoToast();
     stopAnswerCheck();
-    hideRatingPrompt();
     renderResult();
+  }
+
+  function updateInputOverlay() {
+    const overlay = document.querySelector('#promptlab-input-overlay');
+    if (!overlay) return;
+
+    const input = findPromptInput();
+    const target = getPromptOverlayTarget(input);
+    const prompt = getPromptText(input);
+
+    if (!target || state.isOpen) {
+      overlay.hidden = true;
+      state.overlayVisible = false;
+      return;
+    }
+
+    const rect = target.getBoundingClientRect();
+
+    if (rect.width < 80 || rect.height < 28) {
+      overlay.hidden = true;
+      state.overlayVisible = false;
+      return;
+    }
+
+    overlay.hidden = false;
+    overlay.style.left = `${rect.left}px`;
+    overlay.style.top = `${rect.top}px`;
+    overlay.style.width = `${rect.width}px`;
+    overlay.style.height = `${rect.height}px`;
+
+    const radius = Math.min(22, Math.max(10, Number.parseFloat(window.getComputedStyle(target).borderRadius) || 16));
+    const editable = getEditableTarget(input);
+    const isFocused = Boolean(
+      editable
+      && (
+        editable === document.activeElement
+        || editable.contains(document.activeElement)
+        || target.contains(document.activeElement)
+      )
+    );
+    overlay.style.setProperty('--promptlab-input-radius', `${radius}px`);
+    overlay.classList.toggle('is-focused', isFocused);
+    overlay.classList.toggle('is-ready', Boolean(prompt) && !state.inlineImproving);
+    overlay.classList.toggle('is-improving', state.inlineImproving);
+    state.overlayVisible = true;
+  }
+
+  function updateUndoToastPosition() {
+    const toast = document.querySelector('#promptlab-undo-toast');
+    if (!toast || toast.hidden) return;
+
+    const input = findPromptInput();
+    const target = getPromptOverlayTarget(input);
+    if (!target) return;
+
+    const rect = target.getBoundingClientRect();
+    toast.style.left = `${Math.round(Math.min(rect.right - toast.offsetWidth, window.innerWidth - toast.offsetWidth - 12))}px`;
+    toast.style.top = `${Math.round(Math.max(12, rect.top - toast.offsetHeight - 10))}px`;
+  }
+
+  function hideUndoToast() {
+    clearTimeout(state.undoTimer);
+    state.undoTimer = null;
+    const toast = document.querySelector('#promptlab-undo-toast');
+    if (toast) toast.hidden = true;
+  }
+
+  function showUndoToast(originalPrompt) {
+    const toast = document.querySelector('#promptlab-undo-toast');
+    if (!toast) return;
+
+    clearTimeout(state.undoTimer);
+    toast.hidden = false;
+    updateUndoToastPosition();
+    toast.querySelector('button').onclick = () => {
+      if (replacePromptInput(originalPrompt)) {
+        state.usedImproved = false;
+        state.assistantMessageBaseline = getAssistantMessageCount();
+        state.assistantTextBaseline = getAssistantTextSnapshot();
+        state.activePrompt = String(originalPrompt || '').trim();
+        sendUsageLog(false);
+      }
+      hideUndoToast();
+      updateInputOverlay();
+    };
+
+    state.undoTimer = setTimeout(hideUndoToast, 9000);
+  }
+
+  async function requestPromptImprovement(prompt, category, attachmentContext) {
+    const response = await fetch(`${SERVER_URL}/api/improve`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        user_id: state.userId,
+        session_id: state.sessionId,
+        original_prompt: prompt,
+        task_category: category,
+        client_language: CLIENT_LANGUAGE,
+        attachment_context: attachmentContext
+      })
+    });
+
+    if (!response.ok) {
+      throw new Error(`Server returned ${response.status}`);
+    }
+
+    return response.json();
+  }
+
+  async function improveActivePromptInline() {
+    if (state.inlineImproving) return;
+
+    const input = findPromptInput();
+    const prompt = getPromptText(input);
+    const category = DEFAULT_TASK_CATEGORY;
+    const attachmentContext = detectAttachmentMetadata();
+
+    if (!prompt) {
+      updateInputOverlay();
+      return;
+    }
+
+    state.sessionId = createId('session');
+    state.originalPrompt = prompt;
+    state.taskCategory = category;
+    state.response = null;
+    state.improvedPrompt = '';
+    state.usedImproved = null;
+    state.activePrompt = '';
+    state.inlineImproving = true;
+    stopAnswerCheck();
+    hideUndoToast();
+    closePanel();
+    updateInputOverlay();
+
+    try {
+      const data = await requestPromptImprovement(prompt, category, attachmentContext);
+      state.response = data;
+      state.improvedPrompt = data.improved_prompt || '';
+
+      if (!state.improvedPrompt || !replacePromptInput(state.improvedPrompt)) {
+        throw new Error(UI_TEXT.noImprovedPrompt);
+      }
+
+      state.usedImproved = true;
+      state.assistantMessageBaseline = getAssistantMessageCount();
+      state.assistantTextBaseline = getAssistantTextSnapshot();
+      state.activePrompt = state.improvedPrompt.trim();
+      sendUsageLog(true);
+      showUndoToast(prompt);
+    } catch (error) {
+      console.warn(`PromptLab inline improvement failed: ${error.message}`);
+      state.sessionId = null;
+      state.response = null;
+      state.improvedPrompt = '';
+      state.usedImproved = null;
+      state.activePrompt = '';
+    } finally {
+      state.inlineImproving = false;
+      updateInputOverlay();
+    }
   }
 
   function getCurrentPromptDraft() {
@@ -647,13 +773,10 @@
     state.taskCategory = category;
     state.response = null;
     state.usedImproved = null;
-    state.satisfactionScore = null;
-    state.awaitingRating = false;
     state.assistantMessageBaseline = getAssistantMessageCount();
     state.assistantTextBaseline = getAssistantTextSnapshot();
     state.activePrompt = '';
     stopAnswerCheck();
-    hideRatingPrompt();
 
     setBusy(true);
     setStatus(UI_TEXT.improving);
@@ -662,24 +785,7 @@
     renderResult();
 
     try {
-      const response = await fetch(`${SERVER_URL}/api/improve`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          user_id: state.userId,
-          session_id: state.sessionId,
-          original_prompt: prompt,
-          task_category: category,
-          client_language: CLIENT_LANGUAGE,
-          attachment_context: attachmentContext
-        })
-      });
-
-      if (!response.ok) {
-        throw new Error(`Server returned ${response.status}`);
-      }
-
-      const data = await response.json();
+      const data = await requestPromptImprovement(prompt, category, attachmentContext);
       state.response = data;
       state.improvedPrompt = data.improved_prompt || '';
       setStatus(UI_TEXT.ready);
@@ -691,64 +797,67 @@
     }
   }
 
-  async function sendLog(satisfactionScore) {
+  async function sendUsageLog(usedImproved) {
     if (!state.response || !state.sessionId) {
-      setRatingStatus(UI_TEXT.analyzeFirst, true);
       return;
     }
 
-    state.satisfactionScore = satisfactionScore;
-    setSelectedRating(satisfactionScore);
-    setRatingStatus(UI_TEXT.savingRating(satisfactionScore));
+    const logPayload = {
+      userId: state.userId,
+      sessionId: state.sessionId,
+      taskCategory: state.taskCategory,
+      targetPlatform: TARGET_PLATFORM,
+      provider: state.response.provider,
+      improvementType: state.response.improvement_type,
+      improvementReason: state.response.improvement_reason,
+      beforeAnalysis: state.response.before_analysis,
+      afterAnalysis: state.response.after_analysis,
+      guidelineFiles: state.response.guideline_files,
+      retrievedGuidelines: state.response.retrieved_guidelines,
+      attachmentContext: state.response.attachment_context,
+      originalPrompt: state.originalPrompt,
+      improvedPrompt: state.improvedPrompt
+    };
 
     try {
       const [originalHash, improvedHash] = await Promise.all([
-        sha256(state.originalPrompt),
-        sha256(state.improvedPrompt)
+        sha256(logPayload.originalPrompt),
+        sha256(logPayload.improvedPrompt)
       ]);
 
       const response = await fetch(`${SERVER_URL}/api/log`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          user_id: state.userId,
-          session_id: state.sessionId,
-          task_category: state.taskCategory,
-          target_platform: TARGET_PLATFORM,
-          provider: state.response.provider,
-          improvement_type: state.response.improvement_type,
-          improvement_reason: state.response.improvement_reason,
-          used_improved: state.usedImproved,
-          satisfaction_score: satisfactionScore,
-          before_analysis: state.response.before_analysis,
-          after_analysis: state.response.after_analysis,
-          guideline_files: state.response.guideline_files,
-          retrieved_guidelines: state.response.retrieved_guidelines || {
-            category: state.taskCategory,
-            files: state.response.guideline_files || [],
-            target_platform: TARGET_PLATFORM,
-            attachment_context: state.response.attachment_context
+          user_id: logPayload.userId,
+          session_id: logPayload.sessionId,
+          task_category: logPayload.taskCategory,
+          target_platform: logPayload.targetPlatform,
+          provider: logPayload.provider,
+          improvement_type: logPayload.improvementType,
+          improvement_reason: logPayload.improvementReason,
+          used_improved: usedImproved,
+          before_analysis: logPayload.beforeAnalysis,
+          after_analysis: logPayload.afterAnalysis,
+          guideline_files: logPayload.guidelineFiles,
+          retrieved_guidelines: logPayload.retrievedGuidelines || {
+            category: logPayload.taskCategory,
+            files: logPayload.guidelineFiles || [],
+            target_platform: logPayload.targetPlatform,
+            attachment_context: logPayload.attachmentContext
           },
           original_prompt_hash: originalHash,
           improved_prompt_hash: improvedHash,
-          original_prompt_length: state.originalPrompt.length,
-          improved_prompt_length: state.improvedPrompt.length
+          original_prompt_length: logPayload.originalPrompt.length,
+          improved_prompt_length: logPayload.improvedPrompt.length
         })
       });
 
       if (!response.ok) {
         throw new Error(`Server returned ${response.status}`);
       }
-
-      setRatingStatus(UI_TEXT.savedRating(satisfactionScore));
-      setTimeout(() => {
-        resetPromptSession();
-        renderResult();
-      }, 450);
     } catch (error) {
-      state.satisfactionScore = null;
-      setSelectedRating(null);
-      setRatingStatus(`${UI_TEXT.logError}: ${error.message}`, true);
+      console.warn(`PromptLab usage log failed: ${error.message}`);
     }
   }
 
@@ -756,14 +865,12 @@
     if (!replacePromptInput(promptText)) return;
 
     state.usedImproved = usedImproved;
-    state.satisfactionScore = null;
-    state.awaitingRating = true;
     state.assistantMessageBaseline = getAssistantMessageCount();
     state.assistantTextBaseline = getAssistantTextSnapshot();
     state.activePrompt = String(promptText || '').trim();
-    hideRatingPrompt();
     closePanel();
-    startAnswerCheck();
+    sendUsageLog(usedImproved);
+    updateInputOverlay();
   }
 
   function openPanel() {
@@ -771,10 +878,6 @@
     const panel = document.querySelector('#promptlab-panel');
     const input = findPromptInput();
     if (!panel) return;
-
-    if (state.satisfactionScore && !state.awaitingRating) {
-      resetPromptSession();
-    }
 
     panel.hidden = false;
     document.querySelector('#promptlab-current').value = state.response ? state.originalPrompt : getPromptText(input);
@@ -798,6 +901,16 @@
       <button id="promptlab-fab" type="button" aria-label="${escapeHtml(UI_TEXT.openPromptLab)}">
         <img src="${chrome.runtime.getURL('icons/icon48.png')}" alt="">
       </button>
+      <div id="promptlab-input-overlay" hidden>
+        <div id="promptlab-input-ring" aria-hidden="true"></div>
+        <button id="promptlab-inline-chip" type="button" title="${escapeHtml(UI_TEXT.shortcutHint)}">
+          <kbd>${escapeHtml(getShortcutLabel())}</kbd>
+        </button>
+      </div>
+      <section id="promptlab-undo-toast" hidden aria-live="polite">
+        <span>${escapeHtml(UI_TEXT.improvedApplied)}</span>
+        <button type="button">${escapeHtml(UI_TEXT.undoImprovement)}</button>
+      </section>
       <section id="promptlab-panel" hidden>
         <header class="promptlab-header">
           <div>
@@ -821,18 +934,10 @@
           </div>
         </div>
       </section>
-      <section id="promptlab-rating-toast" hidden aria-live="polite">
-        <div>
-          <strong>${escapeHtml(UI_TEXT.ratingTitle)}</strong>
-          <span id="promptlab-rating-status">${escapeHtml(UI_TEXT.ratingPrompt)}</span>
-        </div>
-        <div class="promptlab-rating-buttons">
-          ${[1, 2, 3, 4, 5].map((score) => `<button type="button" data-score="${score}" aria-pressed="false">${score}</button>`).join('')}
-        </div>
-      </section>
     `;
 
     document.body.appendChild(root);
+    applyBorderColor(state.borderColor);
 
     document.querySelector('#promptlab-fab').addEventListener('click', () => {
       if (state.isOpen) {
@@ -843,7 +948,16 @@
       updateFabCue();
     });
     window.addEventListener('resize', updateFabPlacement);
+    window.addEventListener('resize', () => {
+      updateInputOverlay();
+      updateUndoToastPosition();
+    });
+    window.addEventListener('scroll', () => {
+      updateInputOverlay();
+      updateUndoToastPosition();
+    }, true);
 
+    document.querySelector('#promptlab-inline-chip').addEventListener('click', improveActivePromptInline);
     document.querySelector('#promptlab-close').addEventListener('click', closePanel);
     document.querySelector('#promptlab-reload').addEventListener('click', reloadCurrentPromptFromInput);
     document.querySelector('#promptlab-analyze').addEventListener('click', analyzePrompt);
@@ -853,29 +967,54 @@
     document.querySelector('#promptlab-original').addEventListener('click', () => {
       handlePromptChoice(state.originalPrompt, false);
     });
-    document.querySelectorAll('#promptlab-rating-toast button[data-score]').forEach((button) => {
-      button.addEventListener('click', () => sendLog(Number(button.dataset.score)));
-    });
-
     renderResult();
     updateFabCue();
   }
 
+  function handleGlobalKeydown(event) {
+    if (event.defaultPrevented || state.inlineImproving) return;
+    if (event.code !== 'Period' && event.key !== '.') return;
+    if (!event.shiftKey || event.altKey) return;
+
+    const hasPlatformModifier = IS_MAC ? event.metaKey : event.ctrlKey;
+    if (!hasPlatformModifier) return;
+
+    const input = findPromptInput();
+    const editable = getEditableTarget(input);
+    if (!input || !editable) return;
+    if (!editable.contains(document.activeElement) && editable !== document.activeElement) return;
+
+    event.preventDefault();
+    event.stopPropagation();
+    improveActivePromptInline();
+  }
+
   async function init() {
-    state.userId = await getStoredUserId();
+    [state.userId, state.borderColor] = await Promise.all([
+      getStoredUserId(),
+      getStoredBorderColor()
+    ]);
     insertUi();
     startPromptWatch();
+    bindPromptActivityListeners();
+    document.addEventListener('keydown', handleGlobalKeydown, true);
 
     const observer = new MutationObserver(() => {
       if (!document.querySelector('#promptlab-root')) {
         insertUi();
       }
+      schedulePromptRefresh();
     });
 
     if (document.body) {
-      observer.observe(document.body, { childList: true });
+      observer.observe(document.body, { childList: true, subtree: true });
     }
   }
+
+  chrome.storage.onChanged.addListener((changes, areaName) => {
+    if (areaName !== 'local' || !changes[STORAGE_BORDER_COLOR_KEY]) return;
+    applyBorderColor(changes[STORAGE_BORDER_COLOR_KEY].newValue);
+  });
 
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', init, { once: true });

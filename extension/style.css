@@ -5,7 +5,14 @@
   letter-spacing: 0;
 }
 
+#promptlab-root {
+  --promptlab-accent-rgb: 168, 85, 247;
+  --promptlab-accent-light-rgb: 216, 180, 254;
+  --promptlab-accent-dark-rgb: 88, 28, 135;
+}
+
 #promptlab-fab {
+  display: none;
   position: fixed;
   right: var(--promptlab-fab-right, 14px);
   bottom: var(--promptlab-fab-bottom, 120px);
@@ -21,6 +28,178 @@
   box-shadow: 0 10px 28px rgba(88, 28, 135, 0.32);
   cursor: pointer;
   transition: border-color 160ms ease, box-shadow 160ms ease, transform 160ms ease;
+}
+
+#promptlab-input-overlay {
+  position: fixed;
+  z-index: 2147483646;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 90ms ease;
+  will-change: left, top, width, height, opacity;
+}
+
+#promptlab-input-overlay.is-focused,
+#promptlab-input-overlay.is-ready,
+#promptlab-input-overlay.is-improving {
+  opacity: 1;
+}
+
+#promptlab-input-ring {
+  position: absolute;
+  inset: -5px;
+  overflow: hidden;
+  border: 1.5px solid rgba(var(--promptlab-accent-rgb), 0.56);
+  border-radius: calc(var(--promptlab-input-radius, 16px) + 4px);
+  background: transparent;
+  box-shadow: 0 0 0 1px rgba(var(--promptlab-accent-light-rgb), 0.2), 0 0 22px rgba(var(--promptlab-accent-rgb), 0.18), 0 12px 34px rgba(var(--promptlab-accent-dark-rgb), 0.13);
+  transition: border-color 100ms ease, box-shadow 100ms ease, transform 100ms ease;
+  will-change: border-color, box-shadow, transform;
+}
+
+#promptlab-input-overlay.is-focused #promptlab-input-ring {
+  border-color: rgba(var(--promptlab-accent-rgb), 0.72);
+  box-shadow: 0 0 0 1px rgba(var(--promptlab-accent-light-rgb), 0.3), 0 0 26px rgba(var(--promptlab-accent-rgb), 0.24), 0 12px 34px rgba(var(--promptlab-accent-dark-rgb), 0.16);
+}
+
+#promptlab-input-overlay.is-ready #promptlab-input-ring {
+  border-color: rgba(var(--promptlab-accent-rgb), 0.9);
+  box-shadow: 0 0 0 1px rgba(var(--promptlab-accent-light-rgb), 0.42), 0 0 32px rgba(var(--promptlab-accent-rgb), 0.34), 0 14px 38px rgba(var(--promptlab-accent-dark-rgb), 0.2);
+}
+
+#promptlab-input-overlay.is-improving #promptlab-input-ring {
+  border-color: rgba(var(--promptlab-accent-light-rgb), 0.98);
+  box-shadow: 0 0 0 1px rgba(var(--promptlab-accent-light-rgb), 0.78), 0 0 42px rgba(var(--promptlab-accent-rgb), 0.72), 0 0 0 9px rgba(var(--promptlab-accent-rgb), 0.1);
+  animation: promptlab-ring-focus 680ms ease-in-out infinite alternate;
+}
+
+#promptlab-input-ring::before {
+  content: "";
+  position: absolute;
+  pointer-events: none;
+  border-radius: inherit;
+  inset: 0;
+  padding: 2px;
+  background: linear-gradient(135deg, rgba(var(--promptlab-accent-dark-rgb), 0.22), rgba(var(--promptlab-accent-light-rgb), 0.72), rgba(var(--promptlab-accent-rgb), 0.34));
+  opacity: 0.44;
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+}
+
+#promptlab-input-overlay.is-ready #promptlab-input-ring::before {
+  opacity: 0.66;
+}
+
+#promptlab-input-overlay.is-improving #promptlab-input-ring::before {
+  opacity: 0.86;
+}
+
+#promptlab-inline-chip {
+  position: absolute;
+  right: 14px;
+  top: -34px;
+  display: inline-flex;
+  align-items: center;
+  max-width: min(190px, calc(100vw - 32px));
+  min-height: 28px;
+  padding: 4px;
+  border: 1px solid rgba(196, 181, 253, 0.72);
+  border-radius: 8px;
+  background: rgba(30, 13, 58, 0.94);
+  color: #ffffff;
+  font-size: 11px;
+  font-weight: 650;
+  box-shadow: 0 12px 30px rgba(88, 28, 135, 0.28);
+  cursor: pointer;
+  opacity: 0;
+  pointer-events: auto;
+  transform: translateY(3px);
+  transition: opacity 160ms ease, transform 160ms ease, border-color 160ms ease, box-shadow 160ms ease;
+}
+
+#promptlab-input-overlay.is-ready #promptlab-inline-chip,
+#promptlab-input-overlay.is-focused #promptlab-inline-chip {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+#promptlab-input-overlay.is-improving #promptlab-inline-chip {
+  opacity: 0;
+  border-color: rgba(216, 180, 254, 0.96);
+  box-shadow: 0 0 26px rgba(168, 85, 247, 0.48), 0 12px 30px rgba(88, 28, 135, 0.3);
+  pointer-events: none;
+  transform: translateY(0);
+}
+
+#promptlab-inline-chip:hover {
+  border-color: rgba(233, 213, 255, 0.98);
+  box-shadow: 0 0 28px rgba(168, 85, 247, 0.52), 0 12px 30px rgba(88, 28, 135, 0.3);
+}
+
+#promptlab-inline-chip kbd {
+  min-width: 112px;
+  padding: 3px 7px;
+  border: 1px solid rgba(233, 213, 255, 0.34);
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.1);
+  color: #f3e8ff;
+  font-size: 11px;
+  font-weight: 650;
+  text-align: center;
+  white-space: nowrap;
+}
+
+#promptlab-undo-toast {
+  position: fixed;
+  z-index: 2147483647;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  max-width: min(340px, calc(100vw - 24px));
+  padding: 8px 10px;
+  border: 1px solid rgba(196, 181, 253, 0.8);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.98);
+  color: #2e1065;
+  box-shadow: 0 14px 34px rgba(88, 28, 135, 0.22);
+  font-size: 12px;
+}
+
+#promptlab-undo-toast[hidden] {
+  display: none;
+}
+
+#promptlab-undo-toast span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+#promptlab-undo-toast button {
+  flex: 0 0 auto;
+  min-height: 28px;
+  padding: 0 9px;
+  border: 0;
+  border-radius: 6px;
+  background: #7c3aed;
+  color: #ffffff;
+  font-size: 12px;
+  font-weight: 650;
+  cursor: pointer;
+}
+
+@keyframes promptlab-ring-focus {
+  from {
+    transform: scale(1);
+    box-shadow: 0 0 0 1px rgba(var(--promptlab-accent-light-rgb), 0.64), 0 0 30px rgba(var(--promptlab-accent-rgb), 0.46), 0 0 0 5px rgba(var(--promptlab-accent-rgb), 0.07);
+  }
+
+  to {
+    transform: scale(1.006);
+    box-shadow: 0 0 0 1px rgba(var(--promptlab-accent-light-rgb), 0.86), 0 0 44px rgba(var(--promptlab-accent-rgb), 0.68), 0 0 0 8px rgba(var(--promptlab-accent-rgb), 0.1);
+  }
 }
 
 #promptlab-fab:hover {
@@ -64,20 +243,6 @@
   width: min(360px, calc(100vw - 36px));
   max-height: min(680px, calc(100vh - 92px));
   overflow: hidden;
-  border: 1px solid #d8dee4;
-  border-radius: 8px;
-  background: #ffffff;
-  color: #1f2328;
-  box-shadow: 0 16px 38px rgba(88, 28, 135, 0.22);
-}
-
-#promptlab-rating-toast {
-  position: fixed;
-  right: var(--promptlab-fab-right, 18px);
-  bottom: calc(var(--promptlab-fab-bottom, 120px) + 58px);
-  z-index: 2147483647;
-  width: min(340px, calc(100vw - 36px));
-  padding: 10px 12px;
   border: 1px solid #d8dee4;
   border-radius: 8px;
   background: #ffffff;
@@ -324,54 +489,10 @@
   cursor: pointer;
 }
 
-.promptlab-rating-buttons {
-  display: grid;
-  grid-template-columns: repeat(5, 1fr);
-  gap: 5px;
-  margin-top: 8px;
-}
-
-#promptlab-rating-toast strong {
-  display: block;
-  color: #24292f;
-  font-size: 12px;
-  font-weight: 650;
-}
-
-#promptlab-rating-status {
-  display: block;
-  margin-top: 2px;
-  color: #6b5a7d;
-  font-size: 11px;
-  line-height: 1.35;
-}
-
-#promptlab-rating-status.is-error {
-  color: #cf222e;
-}
-
-.promptlab-rating-buttons button {
-  height: 30px;
-  border: 1px solid #d0d7de;
-  border-radius: 6px;
-  background: #ffffff;
-  color: #24292f;
-  font-size: 12px;
-  cursor: pointer;
-}
-
-.promptlab-rating-buttons button:hover,
 #promptlab-reload:hover,
 #promptlab-original:hover,
 #promptlab-close:hover {
   background: #f6f8fa;
-}
-
-.promptlab-rating-buttons button.is-selected {
-  border-color: #7c3aed;
-  background: #7c3aed;
-  color: #ffffff;
-  font-weight: 650;
 }
 
 @media (max-width: 520px) {
@@ -380,13 +501,12 @@
     bottom: var(--promptlab-fab-bottom, 110px);
   }
 
-  #promptlab-panel {
-    right: var(--promptlab-fab-right, 12px);
-    bottom: calc(var(--promptlab-fab-bottom, 110px) + 52px);
-    width: calc(100vw - 24px);
+  #promptlab-inline-chip {
+    top: -32px;
+    max-width: calc(100vw - 28px);
   }
 
-  #promptlab-rating-toast {
+  #promptlab-panel {
     right: var(--promptlab-fab-right, 12px);
     bottom: calc(var(--promptlab-fab-bottom, 110px) + 52px);
     width: calc(100vw - 24px);

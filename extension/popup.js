@@ -1,4 +1,7 @@
 const STORAGE_USER_ID_KEY = 'promptlab_user_id';
+const STORAGE_BORDER_COLOR_KEY = 'promptlab_border_color';
+const DEFAULT_BORDER_COLOR = 'purple';
+const BORDER_COLORS = new Set(['purple', 'blue', 'green', 'orange', 'pink']);
 const SERVER_URL = 'https://promptlab-server.onrender.com';
 
 function i18n(key, substitutions) {
@@ -16,6 +19,35 @@ function localizeDocument() {
 function createId(prefix) {
   const id = crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random().toString(16).slice(2)}`;
   return `${prefix}_${id}`;
+}
+
+function setSelectedBorderColor(color) {
+  const selectedColor = BORDER_COLORS.has(color) ? color : DEFAULT_BORDER_COLOR;
+  const selectedLabel = i18n(`color${selectedColor[0].toUpperCase()}${selectedColor.slice(1)}`);
+  const selectedColorOutput = document.querySelector('#selected-color');
+  if (selectedColorOutput) selectedColorOutput.textContent = selectedLabel;
+  document.querySelectorAll('.color-swatch').forEach((button) => {
+    const isSelected = button.dataset.color === selectedColor;
+    button.classList.toggle('is-selected', isSelected);
+    button.setAttribute('aria-pressed', String(isSelected));
+  });
+}
+
+function initializeBorderColorSetting() {
+  document.querySelectorAll('.color-swatch').forEach((button) => {
+    const label = i18n(button.dataset.colorI18n);
+    button.setAttribute('aria-label', label);
+    button.title = label;
+    button.addEventListener('click', () => {
+      const color = BORDER_COLORS.has(button.dataset.color) ? button.dataset.color : DEFAULT_BORDER_COLOR;
+      setSelectedBorderColor(color);
+      chrome.storage.local.set({ [STORAGE_BORDER_COLOR_KEY]: color });
+    });
+  });
+
+  chrome.storage.local.get([STORAGE_BORDER_COLOR_KEY], (result) => {
+    setSelectedBorderColor(result[STORAGE_BORDER_COLOR_KEY] || DEFAULT_BORDER_COLOR);
+  });
 }
 
 chrome.storage.local.get([STORAGE_USER_ID_KEY], (result) => {
@@ -48,4 +80,5 @@ async function checkServerStatus() {
 }
 
 localizeDocument();
+initializeBorderColorSetting();
 checkServerStatus();

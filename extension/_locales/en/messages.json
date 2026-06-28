@@ -1,6 +1,6 @@
 {
   "extensionName": {
-    "message": "PromptLab Extension"
+    "message": "PromptLab - Prompt Improver for ChatGPT, Claude, Gemini"
   },
   "extensionDescription": {
     "message": "Improve prompts for better AI answers in ChatGPT, Gemini, and Claude."
@@ -12,13 +12,10 @@
     "message": "No improved prompt is available to insert."
   },
   "emptyResult": {
-    "message": "Analyze a prompt to see the improved version and specificity scores."
+    "message": "Improve a prompt to see a clearer rewritten version."
   },
   "improvedPromptLabel": {
     "message": "Improved Prompt"
-  },
-  "ratingPrompt": {
-    "message": "Rate the answer quality."
   },
   "busy": {
     "message": "Improving..."
@@ -47,22 +44,6 @@
   "analyzeFirst": {
     "message": "Analyze a prompt first."
   },
-  "savingRating": {
-    "message": "Saving rating $SCORE$...",
-    "placeholders": {
-      "score": {
-        "content": "$1"
-      }
-    }
-  },
-  "savedRating": {
-    "message": "Rating $SCORE$ saved.",
-    "placeholders": {
-      "score": {
-        "content": "$1"
-      }
-    }
-  },
   "logError": {
     "message": "Failed to save log"
   },
@@ -81,8 +62,19 @@
   "keepOriginal": {
     "message": "Keep original"
   },
-  "ratingTitle": {
-    "message": "Answer rating"
+  "shortcutHint": {
+    "message": "Improve prompt with $SHORTCUT$",
+    "placeholders": {
+      "shortcut": {
+        "content": "$1"
+      }
+    }
+  },
+  "undoImprovement": {
+    "message": "Undo"
+  },
+  "improvedApplied": {
+    "message": "Improved prompt inserted."
   },
   "anonymousUserId": {
     "message": "Anonymous user_id"
@@ -102,16 +94,46 @@
   "disconnected": {
     "message": "Disconnected"
   },
+  "borderColor": {
+    "message": "Input border color"
+  },
+  "popupTagline": {
+    "message": "Settings"
+  },
+  "dataAndDiagnostics": {
+    "message": "Data & diagnostics"
+  },
+  "exportJson": {
+    "message": "Export JSON"
+  },
+  "exportCsv": {
+    "message": "Export CSV"
+  },
+  "colorPurple": {
+    "message": "Purple"
+  },
+  "colorBlue": {
+    "message": "Blue"
+  },
+  "colorGreen": {
+    "message": "Green"
+  },
+  "colorOrange": {
+    "message": "Orange"
+  },
+  "colorPink": {
+    "message": "Pink"
+  },
   "popupStep1": {
     "message": "Write a prompt in ChatGPT, Gemini, or Claude."
   },
   "popupStep2": {
-    "message": "Click the PromptLab button."
+    "message": "Use the shortcut pill on the input border or press the shortcut."
   },
   "popupStep3": {
-    "message": "Improve the prompt and insert it into the input box."
+    "message": "The improved prompt is applied directly to the input box."
   },
   "popupStep4": {
-    "message": "Rate the answer after ChatGPT responds."
+    "message": "Use Undo if you want to restore the original prompt."
   }
 }

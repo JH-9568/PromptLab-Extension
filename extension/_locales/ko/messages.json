@@ -1,6 +1,6 @@
 {
   "extensionName": {
-    "message": "PromptLab Extension"
+    "message": "PromptLab - Prompt Improver for ChatGPT, Claude, Gemini"
   },
   "extensionDescription": {
     "message": "ChatGPT, Gemini, Claude에서 더 좋은 AI 답변을 위한 프롬프트 개선 도구입니다."
@@ -12,13 +12,10 @@
     "message": "삽입할 개선 프롬프트가 없습니다."
   },
   "emptyResult": {
-    "message": "프롬프트를 분석하면 개선본과 구체성 점수를 확인할 수 있습니다."
+    "message": "프롬프트를 개선하면 더 명확한 개선본을 확인할 수 있습니다."
   },
   "improvedPromptLabel": {
     "message": "개선된 프롬프트"
-  },
-  "ratingPrompt": {
-    "message": "답변 만족도를 선택해 주세요."
   },
   "busy": {
     "message": "개선 중..."
@@ -47,22 +44,6 @@
   "analyzeFirst": {
     "message": "먼저 프롬프트를 분석해 주세요."
   },
-  "savingRating": {
-    "message": "만족도 $SCORE$점을 저장 중입니다...",
-    "placeholders": {
-      "score": {
-        "content": "$1"
-      }
-    }
-  },
-  "savedRating": {
-    "message": "만족도 $SCORE$점이 저장되었습니다.",
-    "placeholders": {
-      "score": {
-        "content": "$1"
-      }
-    }
-  },
   "logError": {
     "message": "로그 저장 실패"
   },
@@ -81,8 +62,19 @@
   "keepOriginal": {
     "message": "원본 유지"
   },
-  "ratingTitle": {
-    "message": "답변 만족도"
+  "shortcutHint": {
+    "message": "$SHORTCUT$로 프롬프트 개선",
+    "placeholders": {
+      "shortcut": {
+        "content": "$1"
+      }
+    }
+  },
+  "undoImprovement": {
+    "message": "되돌리기"
+  },
+  "improvedApplied": {
+    "message": "개선본이 입력되었습니다."
   },
   "anonymousUserId": {
     "message": "Anonymous user_id"
@@ -102,16 +94,46 @@
   "disconnected": {
     "message": "Disconnected"
   },
+  "borderColor": {
+    "message": "입력창 테두리 색상"
+  },
+  "popupTagline": {
+    "message": "설정"
+  },
+  "dataAndDiagnostics": {
+    "message": "데이터 및 진단 정보"
+  },
+  "exportJson": {
+    "message": "JSON 내보내기"
+  },
+  "exportCsv": {
+    "message": "CSV 내보내기"
+  },
+  "colorPurple": {
+    "message": "보라색"
+  },
+  "colorBlue": {
+    "message": "파란색"
+  },
+  "colorGreen": {
+    "message": "초록색"
+  },
+  "colorOrange": {
+    "message": "주황색"
+  },
+  "colorPink": {
+    "message": "분홍색"
+  },
   "popupStep1": {
     "message": "ChatGPT, Gemini, Claude에서 프롬프트를 작성하세요."
   },
   "popupStep2": {
-    "message": "PromptLab 버튼을 누르세요."
+    "message": "입력창 테두리의 단축키 안내를 누르거나 단축키를 사용하세요."
   },
   "popupStep3": {
-    "message": "프롬프트를 개선하고 입력창에 넣으세요."
+    "message": "개선본이 입력창에 바로 적용됩니다."
   },
   "popupStep4": {
-    "message": "답변이 나온 뒤 만족도를 평가하세요."
+    "message": "필요하면 되돌리기로 원본 프롬프트를 복원하세요."
   }
 }
