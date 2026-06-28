@@ -69,8 +69,8 @@
 
 #promptlab-input-overlay.is-improving #promptlab-input-ring {
   border-color: rgba(var(--promptlab-accent-light-rgb), 0.98);
-  box-shadow: 0 0 0 1px rgba(var(--promptlab-accent-light-rgb), 0.78), 0 0 42px rgba(var(--promptlab-accent-rgb), 0.72), 0 0 0 9px rgba(var(--promptlab-accent-rgb), 0.1);
-  animation: promptlab-ring-focus 680ms ease-in-out infinite alternate;
+  box-shadow: 0 0 0 1px rgba(var(--promptlab-accent-light-rgb), 0.68), 0 0 36px rgba(var(--promptlab-accent-rgb), 0.56), 0 0 0 7px rgba(var(--promptlab-accent-rgb), 0.08);
+  animation: promptlab-ring-breathe 1.65s cubic-bezier(0.4, 0, 0.2, 1) infinite;
 }
 
 #promptlab-input-ring::before {
@@ -85,6 +85,17 @@
   -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
   -webkit-mask-composite: xor;
   mask-composite: exclude;
+  will-change: background-position, opacity;
+}
+
+#promptlab-input-ring::after {
+  position: absolute;
+  inset: 3px;
+  border-radius: calc(var(--promptlab-input-radius, 16px) + 1px);
+  box-shadow: inset 0 0 18px rgba(var(--promptlab-accent-rgb), 0.18);
+  content: "";
+  opacity: 0;
+  pointer-events: none;
 }
 
 #promptlab-input-overlay.is-ready #promptlab-input-ring::before {
@@ -92,7 +103,22 @@
 }
 
 #promptlab-input-overlay.is-improving #promptlab-input-ring::before {
-  opacity: 0.86;
+  background: linear-gradient(
+    110deg,
+    rgba(var(--promptlab-accent-dark-rgb), 0.2) 0%,
+    rgba(var(--promptlab-accent-rgb), 0.34) 28%,
+    rgba(var(--promptlab-accent-light-rgb), 0.98) 48%,
+    rgba(var(--promptlab-accent-rgb), 0.58) 62%,
+    rgba(var(--promptlab-accent-dark-rgb), 0.2) 100%
+  );
+  background-position: 120% 0;
+  background-size: 240% 100%;
+  opacity: 0.96;
+  animation: promptlab-ring-sweep 1.45s cubic-bezier(0.45, 0, 0.25, 1) infinite;
+}
+
+#promptlab-input-overlay.is-improving #promptlab-input-ring::after {
+  animation: promptlab-inner-glow 1.65s cubic-bezier(0.4, 0, 0.2, 1) infinite;
 }
 
 #promptlab-inline-chip {
@@ -190,15 +216,55 @@
   cursor: pointer;
 }
 
-@keyframes promptlab-ring-focus {
-  from {
+@keyframes promptlab-ring-breathe {
+  0%,
+  100% {
     transform: scale(1);
-    box-shadow: 0 0 0 1px rgba(var(--promptlab-accent-light-rgb), 0.64), 0 0 30px rgba(var(--promptlab-accent-rgb), 0.46), 0 0 0 5px rgba(var(--promptlab-accent-rgb), 0.07);
+    box-shadow: 0 0 0 1px rgba(var(--promptlab-accent-light-rgb), 0.58), 0 0 28px rgba(var(--promptlab-accent-rgb), 0.4), 0 0 0 5px rgba(var(--promptlab-accent-rgb), 0.06);
   }
 
-  to {
-    transform: scale(1.006);
-    box-shadow: 0 0 0 1px rgba(var(--promptlab-accent-light-rgb), 0.86), 0 0 44px rgba(var(--promptlab-accent-rgb), 0.68), 0 0 0 8px rgba(var(--promptlab-accent-rgb), 0.1);
+  50% {
+    transform: scale(1.003);
+    box-shadow: 0 0 0 1px rgba(var(--promptlab-accent-light-rgb), 0.9), 0 0 44px rgba(var(--promptlab-accent-rgb), 0.68), 0 0 0 9px rgba(var(--promptlab-accent-rgb), 0.11);
+  }
+}
+
+@keyframes promptlab-ring-sweep {
+  0% {
+    background-position: 120% 0;
+  }
+
+  100% {
+    background-position: -120% 0;
+  }
+}
+
+@keyframes promptlab-inner-glow {
+  0%,
+  100% {
+    box-shadow: inset 0 0 14px rgba(var(--promptlab-accent-rgb), 0.12);
+    opacity: 0.35;
+  }
+
+  50% {
+    box-shadow: inset 0 0 24px rgba(var(--promptlab-accent-rgb), 0.28);
+    opacity: 0.7;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  #promptlab-input-overlay.is-improving #promptlab-input-ring,
+  #promptlab-input-overlay.is-improving #promptlab-input-ring::before,
+  #promptlab-input-overlay.is-improving #promptlab-input-ring::after {
+    animation: none;
+  }
+
+  #promptlab-input-overlay.is-improving #promptlab-input-ring::before {
+    background: rgba(var(--promptlab-accent-light-rgb), 0.88);
+  }
+
+  #promptlab-input-overlay.is-improving #promptlab-input-ring::after {
+    opacity: 0.5;
   }
 }
 
