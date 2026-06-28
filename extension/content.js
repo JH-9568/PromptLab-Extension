@@ -1011,7 +1011,13 @@
         <img src="${chrome.runtime.getURL('icons/icon48.png')}" alt="">
       </button>
       <div id="promptlab-input-overlay" hidden>
-        <div id="promptlab-input-ring" aria-hidden="true"></div>
+        <div id="promptlab-input-ring" aria-hidden="true">
+          <svg class="promptlab-ring-orbit" focusable="false" aria-hidden="true">
+            <rect class="promptlab-ring-track" pathLength="100"></rect>
+            <rect class="promptlab-ring-trace promptlab-ring-trace-primary" pathLength="100"></rect>
+            <rect class="promptlab-ring-trace promptlab-ring-trace-secondary" pathLength="100"></rect>
+          </svg>
+        </div>
         <button id="promptlab-inline-chip" type="button" title="${escapeHtml(UI_TEXT.shortcutHint)}">
           <kbd>${escapeHtml(getShortcutLabel())}</kbd>
         </button>

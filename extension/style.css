@@ -98,27 +98,75 @@
   pointer-events: none;
 }
 
+.promptlab-ring-orbit {
+  position: absolute;
+  inset: -3px;
+  width: calc(100% + 6px);
+  height: calc(100% + 6px);
+  overflow: visible;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.promptlab-ring-orbit rect {
+  x: 3px;
+  y: 3px;
+  width: calc(100% - 6px);
+  height: calc(100% - 6px);
+  rx: calc(var(--promptlab-input-radius, 16px) + 4px);
+  ry: calc(var(--promptlab-input-radius, 16px) + 4px);
+  fill: none;
+  vector-effect: non-scaling-stroke;
+}
+
+.promptlab-ring-track {
+  stroke: rgba(var(--promptlab-accent-rgb), 0.22);
+  stroke-width: 1;
+}
+
+.promptlab-ring-trace {
+  stroke-linecap: round;
+  will-change: stroke-dashoffset, opacity;
+}
+
+.promptlab-ring-trace-primary {
+  stroke: rgba(var(--promptlab-accent-light-rgb), 0.98);
+  stroke-width: 2.8;
+  stroke-dasharray: 14 86;
+  filter: drop-shadow(0 0 5px rgba(var(--promptlab-accent-rgb), 0.9));
+}
+
+.promptlab-ring-trace-secondary {
+  stroke: rgba(var(--promptlab-accent-rgb), 0.82);
+  stroke-width: 2;
+  stroke-dasharray: 7 93;
+  stroke-dashoffset: -48;
+  filter: drop-shadow(0 0 4px rgba(var(--promptlab-accent-rgb), 0.7));
+}
+
 #promptlab-input-overlay.is-ready #promptlab-input-ring::before {
   opacity: 0.66;
 }
 
 #promptlab-input-overlay.is-improving #promptlab-input-ring::before {
-  background: linear-gradient(
-    110deg,
-    rgba(var(--promptlab-accent-dark-rgb), 0.2) 0%,
-    rgba(var(--promptlab-accent-rgb), 0.34) 28%,
-    rgba(var(--promptlab-accent-light-rgb), 0.98) 48%,
-    rgba(var(--promptlab-accent-rgb), 0.58) 62%,
-    rgba(var(--promptlab-accent-dark-rgb), 0.2) 100%
-  );
-  background-position: 120% 0;
-  background-size: 240% 100%;
-  opacity: 0.96;
-  animation: promptlab-ring-sweep 1.45s cubic-bezier(0.45, 0, 0.25, 1) infinite;
+  background: rgba(var(--promptlab-accent-light-rgb), 0.82);
+  opacity: 0.48;
 }
 
 #promptlab-input-overlay.is-improving #promptlab-input-ring::after {
   animation: promptlab-inner-glow 1.65s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+}
+
+#promptlab-input-overlay.is-improving .promptlab-ring-orbit {
+  opacity: 1;
+}
+
+#promptlab-input-overlay.is-improving .promptlab-ring-trace-primary {
+  animation: promptlab-ring-orbit-primary 1.7s linear infinite;
+}
+
+#promptlab-input-overlay.is-improving .promptlab-ring-trace-secondary {
+  animation: promptlab-ring-orbit-secondary 2.35s linear infinite;
 }
 
 #promptlab-inline-chip {
@@ -229,13 +277,15 @@
   }
 }
 
-@keyframes promptlab-ring-sweep {
-  0% {
-    background-position: 120% 0;
+@keyframes promptlab-ring-orbit-primary {
+  to {
+    stroke-dashoffset: -100;
   }
+}
 
-  100% {
-    background-position: -120% 0;
+@keyframes promptlab-ring-orbit-secondary {
+  to {
+    stroke-dashoffset: 52;
   }
 }
 
@@ -255,7 +305,8 @@
 @media (prefers-reduced-motion: reduce) {
   #promptlab-input-overlay.is-improving #promptlab-input-ring,
   #promptlab-input-overlay.is-improving #promptlab-input-ring::before,
-  #promptlab-input-overlay.is-improving #promptlab-input-ring::after {
+  #promptlab-input-overlay.is-improving #promptlab-input-ring::after,
+  #promptlab-input-overlay.is-improving .promptlab-ring-trace {
     animation: none;
   }
 
@@ -265,6 +316,14 @@
 
   #promptlab-input-overlay.is-improving #promptlab-input-ring::after {
     opacity: 0.5;
+  }
+
+  #promptlab-input-overlay.is-improving .promptlab-ring-trace-primary {
+    stroke-dashoffset: -18;
+  }
+
+  #promptlab-input-overlay.is-improving .promptlab-ring-trace-secondary {
+    stroke-dashoffset: -62;
   }
 }
 
