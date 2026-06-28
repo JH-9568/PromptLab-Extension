@@ -124,6 +124,21 @@
   "colorPink": {
     "message": "Pink"
   },
+  "colorRed": {
+    "message": "Red"
+  },
+  "colorTeal": {
+    "message": "Teal"
+  },
+  "colorYellow": {
+    "message": "Yellow"
+  },
+  "colorIndigo": {
+    "message": "Indigo"
+  },
+  "colorGray": {
+    "message": "Gray"
+  },
   "popupStep1": {
     "message": "Write a prompt in ChatGPT, Gemini, or Claude."
   },

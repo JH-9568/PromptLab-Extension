@@ -124,6 +124,21 @@
   "colorPink": {
     "message": "분홍색"
   },
+  "colorRed": {
+    "message": "빨간색"
+  },
+  "colorTeal": {
+    "message": "청록색"
+  },
+  "colorYellow": {
+    "message": "노란색"
+  },
+  "colorIndigo": {
+    "message": "남색"
+  },
+  "colorGray": {
+    "message": "회색"
+  },
   "popupStep1": {
     "message": "ChatGPT, Gemini, Claude에서 프롬프트를 작성하세요."
   },

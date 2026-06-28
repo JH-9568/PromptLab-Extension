@@ -8,7 +8,12 @@
     blue: { accent: '59, 130, 246', light: '147, 197, 253', dark: '30, 64, 175' },
     green: { accent: '16, 185, 129', light: '110, 231, 183', dark: '4, 120, 87' },
     orange: { accent: '249, 115, 22', light: '253, 186, 116', dark: '194, 65, 12' },
-    pink: { accent: '236, 72, 153', light: '249, 168, 212', dark: '157, 23, 77' }
+    pink: { accent: '236, 72, 153', light: '249, 168, 212', dark: '157, 23, 77' },
+    red: { accent: '239, 68, 68', light: '252, 165, 165', dark: '185, 28, 28' },
+    teal: { accent: '20, 184, 166', light: '94, 234, 212', dark: '15, 118, 110' },
+    yellow: { accent: '234, 179, 8', light: '253, 224, 71', dark: '161, 98, 7' },
+    indigo: { accent: '99, 102, 241', light: '165, 180, 252', dark: '67, 56, 202' },
+    gray: { accent: '113, 113, 122', light: '212, 212, 216', dark: '63, 63, 70' }
   };
   const PLATFORM_CONFIG = {
     chatgpt: {
@@ -140,7 +145,11 @@
     undoTimer: null,
     promptUpdateRaf: null,
     promptActivityListenersBound: false,
-    borderColor: DEFAULT_BORDER_COLOR
+    borderColor: DEFAULT_BORDER_COLOR,
+    overlayTarget: null,
+    overlayObservedTarget: null,
+    overlayResizeObserver: null,
+    overlaySettleRaf: null
   };
 
   function getShortcutLabel() {
@@ -541,6 +550,92 @@
     });
   }
 
+  function hideInputOverlay() {
+    const overlay = document.querySelector('#promptlab-input-overlay');
+    if (overlay) overlay.hidden = true;
+    state.overlayVisible = false;
+  }
+
+  function observeOverlayTarget(target) {
+    if (state.overlayObservedTarget === target) return false;
+
+    if (!state.overlayResizeObserver && typeof ResizeObserver !== 'undefined') {
+      state.overlayResizeObserver = new ResizeObserver(() => settleInputOverlay());
+    }
+
+    state.overlayResizeObserver?.disconnect();
+    state.overlayObservedTarget = target || null;
+    if (target) state.overlayResizeObserver?.observe(target);
+    return true;
+  }
+
+  function rectsMatch(a, b, tolerance = 0.75) {
+    if (!a || !b) return false;
+    return (
+      Math.abs(a.left - b.left) <= tolerance
+      && Math.abs(a.top - b.top) <= tolerance
+      && Math.abs(a.width - b.width) <= tolerance
+      && Math.abs(a.height - b.height) <= tolerance
+    );
+  }
+
+  function getOverlayRect(target) {
+    if (!target?.isConnected) return null;
+    const rect = target.getBoundingClientRect();
+    if (rect.width < 80 || rect.height < 28) return null;
+    return { left: rect.left, top: rect.top, width: rect.width, height: rect.height };
+  }
+
+  function isOverlayGeometryStale(target) {
+    if (!target || target !== state.overlayTarget) return true;
+    const nextRect = getOverlayRect(target);
+    if (!nextRect) return true;
+
+    const overlay = document.querySelector('#promptlab-input-overlay');
+    if (!overlay) return true;
+    const currentRect = {
+      left: Number.parseFloat(overlay.style.left),
+      top: Number.parseFloat(overlay.style.top),
+      width: Number.parseFloat(overlay.style.width),
+      height: Number.parseFloat(overlay.style.height)
+    };
+    return !rectsMatch(currentRect, nextRect, 1.5);
+  }
+
+  function settleInputOverlay() {
+    hideInputOverlay();
+    cancelAnimationFrame(state.overlaySettleRaf);
+
+    let previousRect = null;
+    let stableFrames = 0;
+    let frameCount = 0;
+
+    const checkLayout = () => {
+      const input = findPromptInput();
+      const target = getPromptOverlayTarget(input);
+      const rect = getOverlayRect(target);
+      frameCount += 1;
+
+      if (rect && rectsMatch(previousRect, rect)) {
+        stableFrames += 1;
+      } else {
+        stableFrames = 0;
+      }
+
+      if ((rect && stableFrames >= 2) || frameCount >= 24) {
+        state.overlaySettleRaf = null;
+        updateFabCue();
+        updateUndoToastPosition();
+        return;
+      }
+
+      previousRect = rect;
+      state.overlaySettleRaf = requestAnimationFrame(checkLayout);
+    };
+
+    state.overlaySettleRaf = requestAnimationFrame(checkLayout);
+  }
+
   function bindPromptActivityListeners() {
     if (state.promptActivityListenersBound) return;
     state.promptActivityListenersBound = true;
@@ -582,21 +677,34 @@
     const overlay = document.querySelector('#promptlab-input-overlay');
     if (!overlay) return;
 
+    if (state.overlaySettleRaf) {
+      hideInputOverlay();
+      return;
+    }
+
     const input = findPromptInput();
     const target = getPromptOverlayTarget(input);
     const prompt = getPromptText(input);
 
     if (!target || state.isOpen) {
-      overlay.hidden = true;
-      state.overlayVisible = false;
+      hideInputOverlay();
+      state.overlayTarget = null;
+      observeOverlayTarget(null);
       return;
     }
 
     const rect = target.getBoundingClientRect();
 
     if (rect.width < 80 || rect.height < 28) {
-      overlay.hidden = true;
-      state.overlayVisible = false;
+      hideInputOverlay();
+      state.overlayTarget = null;
+      observeOverlayTarget(null);
+      return;
+    }
+
+    const targetChanged = observeOverlayTarget(target);
+    if (targetChanged) {
+      settleInputOverlay();
       return;
     }
 
@@ -620,6 +728,7 @@
     overlay.classList.toggle('is-focused', isFocused);
     overlay.classList.toggle('is-ready', Boolean(prompt) && !state.inlineImproving);
     overlay.classList.toggle('is-improving', state.inlineImproving);
+    state.overlayTarget = target;
     state.overlayVisible = true;
   }
 
@@ -999,15 +1108,34 @@
     bindPromptActivityListeners();
     document.addEventListener('keydown', handleGlobalKeydown, true);
 
-    const observer = new MutationObserver(() => {
+    const observer = new MutationObserver((mutations) => {
+      const hasExternalLayoutMutation = mutations.some((mutation) => {
+        const target = mutation.target?.nodeType === Node.ELEMENT_NODE
+          ? mutation.target
+          : mutation.target?.parentElement;
+        return !target?.closest?.('#promptlab-root');
+      });
+      if (!hasExternalLayoutMutation) return;
+
       if (!document.querySelector('#promptlab-root')) {
         insertUi();
       }
-      schedulePromptRefresh();
+
+      const target = getPromptOverlayTarget(findPromptInput());
+      if (state.overlayVisible && isOverlayGeometryStale(target)) {
+        settleInputOverlay();
+      } else {
+        schedulePromptRefresh();
+      }
     });
 
     if (document.body) {
-      observer.observe(document.body, { childList: true, subtree: true });
+      observer.observe(document.body, {
+        childList: true,
+        subtree: true,
+        attributes: true,
+        attributeFilter: ['class', 'style', 'hidden']
+      });
     }
   }
 

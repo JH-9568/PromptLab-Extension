@@ -1,7 +1,10 @@
 const STORAGE_USER_ID_KEY = 'promptlab_user_id';
 const STORAGE_BORDER_COLOR_KEY = 'promptlab_border_color';
 const DEFAULT_BORDER_COLOR = 'purple';
-const BORDER_COLORS = new Set(['purple', 'blue', 'green', 'orange', 'pink']);
+const BORDER_COLORS = new Set([
+  'purple', 'blue', 'green', 'orange', 'pink',
+  'red', 'teal', 'yellow', 'indigo', 'gray'
+]);
 const SERVER_URL = 'https://promptlab-server.onrender.com';
 
 function i18n(key, substitutions) {
