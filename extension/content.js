@@ -298,26 +298,42 @@
     }
 
     const uniqueCandidates = Array.from(new Set(candidates)).filter(Boolean);
-    const maxHeight = Math.max(170, editableRect.height * 1.85);
+    // ProseMirror can overflow its scroll frame for long prompts, so prefer the
+    // rounded, clipping composer surface instead of matching the editable bottom.
+    const maxHeight = Math.min(
+      window.innerHeight * 0.86,
+      Math.max(440, editableRect.height + 180)
+    );
+    const maxTopGap = Math.min(440, window.innerHeight * 0.58);
     let bestTarget = editable || input;
-    let bestScore = 0;
+    let bestScore = Number.NEGATIVE_INFINITY;
 
     for (const candidate of uniqueCandidates) {
       const rect = candidate.getBoundingClientRect();
       if (!rect.width || !rect.height) continue;
-      if (rect.height > maxHeight || rect.height < editableRect.height * 0.55) continue;
+      if (rect.height > maxHeight || rect.height < 28) continue;
       if (rect.width < editableRect.width * 0.92) continue;
       if (rect.width > window.innerWidth - 8) continue;
-      if (rect.top > editableRect.top + 28 || rect.bottom < editableRect.bottom - 18) continue;
-      if (Math.abs(rect.bottom - editableRect.bottom) > 92) continue;
+      if (rect.left > editableRect.left + 28 || rect.right < editableRect.right - 28) continue;
+      if (rect.top > editableRect.top + 28 || editableRect.top - rect.top > maxTopGap) continue;
+      if (rect.bottom < editableRect.top + Math.min(32, editableRect.height) - 18) continue;
 
       const style = window.getComputedStyle(candidate);
       if (style.visibility === 'hidden' || style.display === 'none') continue;
 
       const widthGain = rect.width - editableRect.width;
-      const heightPenalty = Math.max(0, rect.height - editableRect.height) * 0.5;
-      const semanticBonus = /form|composer|rich-textarea/i.test(`${candidate.tagName} ${candidate.className} ${candidate.getAttribute('data-testid') || ''}`) ? 160 : 0;
-      const score = rect.width + widthGain + semanticBonus - heightPenalty;
+      const heightPenalty = Math.max(0, rect.height - Math.min(editableRect.height, rect.height)) * 0.18;
+      const signature = `${candidate.tagName} ${candidate.className} ${candidate.getAttribute('data-testid') || ''}`;
+      const semanticBonus = /form|composer|rich-textarea/i.test(signature) ? 130 : 0;
+      const radius = Number.parseFloat(style.borderRadius) || 0;
+      const roundedFrameBonus = radius >= 16 ? 180 + Math.min(radius, 32) * 4 : 0;
+      const clipsContent = /(auto|hidden|clip|scroll)/.test(`${style.overflow} ${style.overflowX} ${style.overflowY}`);
+      const clippingBonus = clipsContent ? 80 : 0;
+      const hasSurface = style.backgroundColor !== 'rgba(0, 0, 0, 0)'
+        && style.backgroundColor !== 'transparent';
+      const surfaceBonus = hasSurface ? 70 : 0;
+      const score = rect.width + widthGain + semanticBonus + roundedFrameBonus
+        + clippingBonus + surfaceBonus - heightPenalty;
 
       if (score > bestScore) {
         bestScore = score;
