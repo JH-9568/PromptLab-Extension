@@ -35,6 +35,9 @@
   "improving": {
     "message": "프롬프트를 개선하고 있습니다..."
   },
+  "improvingInline": {
+    "message": "프롬프트 개선 중"
+  },
   "ready": {
     "message": "개선된 프롬프트가 준비되었습니다."
   },
@@ -74,7 +77,7 @@
     "message": "되돌리기"
   },
   "improvedApplied": {
-    "message": "개선본이 입력되었습니다."
+    "message": "개선본을 적용했습니다"
   },
   "anonymousUserId": {
     "message": "Anonymous user_id"
@@ -96,6 +99,9 @@
   },
   "borderColor": {
     "message": "입력창 테두리 색상"
+  },
+  "borderColorHelp": {
+    "message": "색상을 선택하면 지원되는 AI 입력창에 즉시 적용됩니다."
   },
   "popupTagline": {
     "message": "설정"

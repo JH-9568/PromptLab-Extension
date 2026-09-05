@@ -35,6 +35,9 @@
   "improving": {
     "message": "Improving the prompt..."
   },
+  "improvingInline": {
+    "message": "Improving prompt"
+  },
   "ready": {
     "message": "Improved prompt is ready."
   },
@@ -74,7 +77,7 @@
     "message": "Undo"
   },
   "improvedApplied": {
-    "message": "Improved prompt inserted."
+    "message": "Improved prompt applied"
   },
   "anonymousUserId": {
     "message": "Anonymous user_id"
@@ -96,6 +99,9 @@
   },
   "borderColor": {
     "message": "Input border color"
+  },
+  "borderColorHelp": {
+    "message": "Choose a color here. It applies instantly on supported AI sites."
   },
   "popupTagline": {
     "message": "Settings"

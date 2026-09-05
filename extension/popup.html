@@ -17,8 +17,8 @@
       body {
         width: 340px;
         margin: 0;
-        background: #ffffff;
-        color: #18181b;
+        background: linear-gradient(180deg, #f8fbff 0%, #ffffff 50%);
+        color: #111827;
         font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
         font-size: 13px;
       }
@@ -28,8 +28,9 @@
         align-items: center;
         justify-content: space-between;
         gap: 16px;
-        padding: 18px;
+        padding: 16px 16px 12px;
         border-bottom: 1px solid #e4e4e7;
+        background: linear-gradient(180deg, rgba(250, 249, 255, 0.94), rgba(255, 255, 255, 0.98));
       }
 
       .brand {
@@ -66,6 +67,7 @@
         color: #71717a;
         font-size: 11px;
         font-weight: 650;
+        white-space: nowrap;
       }
 
       .status::before {
@@ -93,7 +95,7 @@
       }
 
       main {
-        padding: 18px;
+        padding: 16px;
       }
 
       .setting-heading {
@@ -119,6 +121,14 @@
         grid-template-columns: repeat(5, 1fr);
         gap: 8px;
         margin-top: 14px;
+        margin-bottom: 4px;
+      }
+
+      .setting-help {
+        margin: 10px 0 0;
+        color: #71717a;
+        font-size: 11px;
+        line-height: 1.45;
       }
 
       .color-swatch {
@@ -127,7 +137,7 @@
         aspect-ratio: 1;
         padding: 0;
         border: 1px solid #d4d4d8;
-        border-radius: 8px;
+        border-radius: 10px;
         background: #fafafa;
         cursor: pointer;
         transition: border-color 140ms ease, background-color 140ms ease, box-shadow 140ms ease;
@@ -151,6 +161,10 @@
         border-color: #27272a;
         background: #ffffff;
         box-shadow: 0 0 0 2px #27272a;
+      }
+
+      .color-swatch.is-selected::before {
+        transform: scale(0.94);
       }
 
       .color-swatch.is-selected::after {
@@ -188,7 +202,7 @@
         margin-top: 12px;
         padding: 12px;
         border: 1px solid #e4e4e7;
-        border-radius: 6px;
+        border-radius: 10px;
         background: #fafafa;
       }
 
@@ -226,10 +240,12 @@
         font-size: 11px;
         text-decoration: none;
         font-weight: 650;
+        border-bottom: 1px solid transparent;
       }
 
       .links a:hover {
-        text-decoration: underline;
+        border-bottom-color: #176b5b;
+        opacity: 0.94;
       }
     </style>
   </head>
@@ -262,6 +278,7 @@
           <button class="color-swatch" type="button" data-color="indigo" data-color-i18n="colorIndigo" style="--swatch-color: #6366f1"></button>
           <button class="color-swatch" type="button" data-color="gray" data-color-i18n="colorGray" style="--swatch-color: #71717a"></button>
         </div>
+        <p class="setting-help" data-i18n="borderColorHelp">Choose a color here. It applies instantly on supported AI sites.</p>
       </section>
       <details class="diagnostics">
         <summary data-i18n="dataAndDiagnostics">Data &amp; diagnostics</summary>

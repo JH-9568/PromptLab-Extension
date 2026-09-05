@@ -1,8 +1,8 @@
 # PromptLab 개인정보처리방침
 
-최종 업데이트: 2026-05-13
+최종 업데이트: 2026-09-05
 
-PromptLab은 사용자가 ChatGPT에서 작성한 프롬프트를 더 명확하게 개선할 수 있도록 돕는 Chrome 확장 프로그램입니다. PromptLab은 프롬프트 개선 품질을 평가하고 기능을 개선하기 위해 제한적인 익명 사용 메타데이터를 수집합니다.
+PromptLab은 사용자가 ChatGPT, Gemini, Claude에서 작성한 프롬프트를 더 명확하게 개선할 수 있도록 돕는 Chrome 확장 프로그램입니다. PromptLab은 프롬프트 개선 품질을 평가하고 기능을 개선하기 위해 제한적인 익명 사용 메타데이터를 수집합니다.
 
 ## 수집하는 데이터
 
@@ -13,7 +13,6 @@ PromptLab은 다음 데이터를 수집할 수 있습니다.
 - 작업 카테고리
 - 대상 AI 플랫폼(ChatGPT, Gemini, Claude 등)
 - 개선된 프롬프트 또는 원본 프롬프트 사용 여부
-- 사용자가 선택한 만족도 점수
 - 개선 전후 프롬프트 분석 메타데이터
 - 프롬프트 개선 유형 및 개선 이유 메타데이터
 - 프롬프트 개선에 사용된 가이드라인 메타데이터
@@ -63,9 +62,9 @@ PromptLab은 연구 및 제품 개선을 위해 익명 세션 메타데이터를
 
 # PromptLab Privacy Policy
 
-Last updated: 2026-05-13
+Last updated: 2026-09-05
 
-PromptLab helps users improve prompts on ChatGPT and collects limited anonymous usage metadata to evaluate prompt improvement quality.
+PromptLab helps users improve prompts on ChatGPT, Gemini, and Claude and collects limited anonymous usage metadata to evaluate prompt improvement quality.
 
 ## Data We Collect
 
@@ -76,7 +75,6 @@ PromptLab may collect:
 - Task category
 - Target AI platform (such as ChatGPT, Gemini, or Claude)
 - Whether the improved prompt or original prompt was used
-- Satisfaction rating selected by the user
 - Before/after prompt analysis metadata
 - Prompt improvement type and improvement reason metadata
 - Guideline metadata used for improvement

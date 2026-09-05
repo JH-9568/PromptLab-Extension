@@ -1,0 +1,43 @@
+Improve prompts for better AI answers in ChatGPT, Gemini, and Claude.
+
+PromptLab turns rough prompts into clearer, more actionable instructions directly inside the AI input box. Write your prompt normally, run PromptLab with the shortcut, and the improved version is applied in place while preserving your original intent.
+
+HOW TO USE
+
+1. Open ChatGPT, Gemini, or Claude.
+2. Write a prompt in the AI input box.
+3. Run PromptLab:
+   - Mac: Command+Shift+;
+   - Windows/Linux: Ctrl+Shift+.
+4. Review the improved prompt directly in the input box.
+5. Select Undo to restore the original prompt when needed.
+
+CUSTOMIZE THE INPUT BORDER
+
+1. Select the PromptLab icon in the Chrome toolbar.
+2. Under Input border color, choose one of 10 colors.
+3. Return to the AI tab. The selected color is applied automatically.
+
+KEY FEATURES
+
+- Works directly inside ChatGPT, Gemini, and Claude
+- Improves prompts without opening a separate editor
+- Preserves the original request while improving clarity and structure
+- Applies the improved prompt directly to the AI input box
+- Restores the original prompt with one-click Undo
+- Offers 10 customizable input border colors
+- Supports Korean and English interfaces
+- Uses a responsive border that follows long prompts and attachments
+
+PRIVACY
+
+Prompt text is sent to the PromptLab backend and may be processed by the OpenAI API to generate the improved version. PromptLab analytics logs do not store the full original prompt or the full improved prompt. Stored analytics are limited to anonymous metadata such as an anonymous user ID, session ID, target AI platform, improvement metadata, prompt hashes, and character lengths.
+
+SUPPORTED SITES
+
+https://chatgpt.com
+https://chat.openai.com
+https://gemini.google.com
+https://claude.ai
+
+Improve your prompt with one shortcut and get a clearer request without leaving your AI workspace.

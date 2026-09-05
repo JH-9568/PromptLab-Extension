@@ -95,6 +95,7 @@
     openPromptLab: i18n('openPromptLab'),
     noPrompt: i18n('noPrompt'),
     improving: i18n('improving'),
+    improvingInline: i18n('improvingInline'),
     ready: i18n('ready'),
     serverError: i18n('serverError'),
     analyzeFirst: i18n('analyzeFirst'),
@@ -149,11 +150,12 @@
     overlayTarget: null,
     overlayObservedTarget: null,
     overlayResizeObserver: null,
-    overlaySettleRaf: null
+    overlaySettleRaf: null,
+    shortcutPulseTimer: null
   };
 
   function getShortcutLabel() {
-    return IS_MAC ? 'Command+Shift+.' : 'Ctrl+Shift+.';
+    return IS_MAC ? 'Command+Shift+;' : 'Ctrl+Shift+.';
   }
 
   function createId(prefix) {
@@ -416,7 +418,7 @@
     }
 
     if (!nextValue) {
-      setStatus(UI_TEXT.noImprovedPrompt, true);
+      setStatus(UI_TEXT.noImprovedPrompt, false, 'error');
       return false;
     }
 
@@ -502,11 +504,53 @@
     }
   }
 
-  function setStatus(message, isError = false) {
+  function setStatus(message, isError = false, variant = 'default') {
     const status = document.querySelector('#promptlab-status');
     if (!status) return;
-    status.textContent = message || '';
-    status.classList.toggle('is-error', Boolean(isError));
+
+    const previousVariant = status.dataset.variant || 'default';
+    const shouldMarkError = Boolean(isError) || variant === 'error';
+    const text = escapeHtml(message || '');
+    const variantsWithPulse = new Set(['improving']);
+    const shouldPulse = variantsWithPulse.has(variant);
+    const showIcon = {
+      improving: 'dots',
+      success: 'check',
+      ready: 'check',
+      warning: 'triangle',
+      error: 'cross',
+    };
+    const iconType = shouldPulse ? 'dots' : showIcon[variant] || '';
+    const iconMarkup = iconType === 'dots'
+      ? '<span class="promptlab-status-icon" aria-hidden="true"><span></span><span></span><span></span></span>'
+      : iconType === 'check'
+        ? '<span class="promptlab-status-icon promptlab-status-icon-check" aria-hidden="true"><span></span></span>'
+        : iconType === 'triangle'
+          ? '<span class="promptlab-status-icon promptlab-status-icon-warning" aria-hidden="true"><span></span></span>'
+          : iconType === 'cross'
+            ? '<span class="promptlab-status-icon promptlab-status-icon-error" aria-hidden="true"><span></span></span>'
+            : '';
+
+    status.className = `promptlab-status${shouldMarkError ? ' is-error' : ''}${shouldPulse ? ' is-busy' : ''}`;
+    status.dataset.variant = variant;
+    status.dataset.prevVariant = previousVariant;
+
+    status.classList.remove('is-variant-transition');
+    status.offsetHeight;
+    status.classList.add('is-variant-transition');
+    clearTimeout(status._promptlabStatusTransitionTimer);
+    status._promptlabStatusTransitionTimer = setTimeout(() => {
+      status.classList.remove('is-variant-transition');
+    }, 720);
+
+    status.innerHTML = `
+      ${iconMarkup}
+      <span class="promptlab-status-text">${text}</span>
+    `;
+    status.classList.toggle('is-error', shouldMarkError);
+    status.classList.toggle('is-busy', shouldPulse);
+    status.classList.toggle('is-warning', variant === 'warning');
+    status.classList.toggle('is-success', variant === 'success' || variant === 'ready');
   }
 
   function setBusy(isBusy) {
@@ -515,14 +559,31 @@
     if (button) {
       button.disabled = isBusy;
       button.textContent = isBusy ? UI_TEXT.busy : UI_TEXT.improveButton;
+      button.classList.toggle('is-busy', isBusy);
     }
-    if (reloadButton) reloadButton.disabled = isBusy;
+    if (reloadButton) {
+      reloadButton.disabled = isBusy;
+      reloadButton.classList.toggle('is-busy', isBusy);
+    }
+  }
+
+  function triggerShortcutPulse() {
+    const overlay = document.querySelector('#promptlab-input-overlay');
+    if (!overlay) return;
+
+    overlay.classList.remove('is-shortcut-pulse');
+    overlay.offsetHeight;
+    overlay.classList.add('is-shortcut-pulse');
+
+    clearTimeout(state.shortcutPulseTimer);
+    state.shortcutPulseTimer = setTimeout(() => {
+      overlay.classList.remove('is-shortcut-pulse');
+    }, 560);
   }
 
   function updateFabPlacement() {
     const root = document.querySelector('#promptlab-root');
-    const button = document.querySelector('#promptlab-fab');
-    if (!root || !button) return;
+    if (!root) return;
 
     const bottom = Math.max(96, Math.round(window.innerHeight * 0.22));
     root.style.setProperty('--promptlab-fab-bottom', `${bottom}px`);
@@ -530,13 +591,8 @@
   }
 
   function updateFabCue() {
-    const button = document.querySelector('#promptlab-fab');
-    if (!button) {
-      updateInputOverlay();
-      return;
-    }
-
     updateFabPlacement();
+    const button = document.querySelector('#promptlab-fab');
     const prompt = getPromptText(findPromptInput());
 
     if (prompt && state.activePrompt && prompt !== state.activePrompt && !hasNewAssistantAnswer()) {
@@ -544,9 +600,11 @@
       renderResult();
     }
 
-    const shouldCue = Boolean(prompt) && !state.isOpen && !state.response;
-    button.classList.toggle('has-prompt', shouldCue);
-    button.setAttribute('aria-label', shouldCue ? UI_TEXT.improveAvailable : UI_TEXT.openPromptLab);
+    if (button) {
+      const shouldCue = Boolean(prompt) && !state.isOpen && !state.response;
+      button.classList.toggle('has-prompt', shouldCue);
+      button.setAttribute('aria-label', shouldCue ? UI_TEXT.improveAvailable : UI_TEXT.openPromptLab);
+    }
     updateInputOverlay();
   }
 
@@ -824,6 +882,8 @@
       return;
     }
 
+    triggerShortcutPulse();
+
     state.sessionId = createId('session');
     state.originalPrompt = prompt;
     state.taskCategory = category;
@@ -879,7 +939,7 @@
 
     currentPrompt.value = prompt;
     resetAnalysisResult();
-    setStatus(prompt ? '' : UI_TEXT.noPrompt, !prompt);
+    setStatus(prompt ? '' : UI_TEXT.noPrompt, false, prompt ? 'default' : 'warning');
     currentPrompt.focus();
   }
 
@@ -889,7 +949,7 @@
     const attachmentContext = detectAttachmentMetadata();
 
     if (!prompt) {
-      setStatus(UI_TEXT.noPrompt, true);
+      setStatus(UI_TEXT.noPrompt, false, 'warning');
       return;
     }
 
@@ -904,19 +964,17 @@
     stopAnswerCheck();
 
     setBusy(true);
-    setStatus(UI_TEXT.improving);
-    const fab = document.querySelector('#promptlab-fab');
-    if (fab) fab.classList.remove('has-prompt');
+    setStatus(UI_TEXT.improving, false, 'improving');
     renderResult();
 
     try {
       const data = await requestPromptImprovement(prompt, category, attachmentContext);
       state.response = data;
       state.improvedPrompt = data.improved_prompt || '';
-      setStatus(UI_TEXT.ready);
+      setStatus(UI_TEXT.ready, false, 'success');
       renderResult();
     } catch (error) {
-      setStatus(`${UI_TEXT.serverError}: ${error.message}`, true);
+      setStatus(`${UI_TEXT.serverError}: ${error.message}`, true, 'error');
     } finally {
       setBusy(false);
     }
@@ -1005,15 +1063,23 @@
     if (!panel) return;
 
     panel.hidden = false;
+    requestAnimationFrame(() => {
+      panel.classList.add('is-open');
+    });
     document.querySelector('#promptlab-current').value = state.response ? state.originalPrompt : getPromptText(input);
-    setStatus('');
+    setStatus('', false, 'default');
     renderResult();
   }
 
   function closePanel() {
     state.isOpen = false;
     const panel = document.querySelector('#promptlab-panel');
-    if (panel) panel.hidden = true;
+    if (!panel) return;
+
+    panel.classList.remove('is-open');
+    setTimeout(() => {
+      if (!state.isOpen) panel.hidden = true;
+    }, 160);
   }
 
   function insertUi() {
@@ -1023,9 +1089,6 @@
     const root = document.createElement('div');
     root.id = 'promptlab-root';
     root.innerHTML = `
-      <button id="promptlab-fab" type="button" aria-label="${escapeHtml(UI_TEXT.openPromptLab)}">
-        <img src="${chrome.runtime.getURL('icons/icon48.png')}" alt="">
-      </button>
       <div id="promptlab-input-overlay" hidden>
         <div id="promptlab-input-ring" aria-hidden="true">
           <svg class="promptlab-ring-orbit" focusable="false" aria-hidden="true">
@@ -1036,20 +1099,24 @@
         </div>
         <button id="promptlab-inline-chip" type="button" title="${escapeHtml(UI_TEXT.shortcutHint)}">
           <kbd>${escapeHtml(getShortcutLabel())}</kbd>
+          <span class="promptlab-inline-progress" aria-hidden="true"><i></i><i></i></span>
+          <span class="promptlab-inline-progress-label">${escapeHtml(UI_TEXT.improvingInline)}</span>
         </button>
       </div>
       <section id="promptlab-undo-toast" hidden aria-live="polite">
-        <span>${escapeHtml(UI_TEXT.improvedApplied)}</span>
-        <button type="button">${escapeHtml(UI_TEXT.undoImprovement)}</button>
+        <span class="promptlab-toast-check" aria-hidden="true"></span>
+        <span class="promptlab-toast-message">${escapeHtml(UI_TEXT.improvedApplied)}</span>
+        <button type="button"><span class="promptlab-toast-undo-icon" aria-hidden="true"></span>${escapeHtml(UI_TEXT.undoImprovement)}</button>
       </section>
       <section id="promptlab-panel" hidden>
-        <header class="promptlab-header">
-          <div>
-            <strong>PromptLab</strong>
-            <span>${escapeHtml(UI_TEXT.subtitle)}</span>
-          </div>
-          <button id="promptlab-close" type="button" aria-label="Close">x</button>
-        </header>
+      <header class="promptlab-header">
+        <div>
+          <strong>PromptLab</strong>
+          <span>${escapeHtml(UI_TEXT.subtitle)}</span>
+          <span class="promptlab-version-badge">v${escapeHtml(chrome.runtime.getManifest().version)}</span>
+        </div>
+        <button id="promptlab-close" type="button" aria-label="Close">x</button>
+      </header>
         <div class="promptlab-body">
           <label class="promptlab-label" for="promptlab-current">${escapeHtml(UI_TEXT.currentPrompt)}</label>
           <textarea id="promptlab-current"></textarea>
@@ -1070,14 +1137,6 @@
     document.body.appendChild(root);
     applyBorderColor(state.borderColor);
 
-    document.querySelector('#promptlab-fab').addEventListener('click', () => {
-      if (state.isOpen) {
-        closePanel();
-      } else {
-        openPanel();
-      }
-      updateFabCue();
-    });
     window.addEventListener('resize', updateFabPlacement);
     window.addEventListener('resize', () => {
       updateInputOverlay();
@@ -1104,11 +1163,21 @@
 
   function handleGlobalKeydown(event) {
     if (event.defaultPrevented || state.inlineImproving) return;
-    if (event.code !== 'Period' && event.key !== '.') return;
-    if (!event.shiftKey || event.altKey) return;
-
-    const hasPlatformModifier = IS_MAC ? event.metaKey : event.ctrlKey;
-    if (!hasPlatformModifier) return;
+    const isMac = IS_MAC;
+    if (isMac) {
+      const isMacShortcutKey = event.code === 'Semicolon'
+        || event.code === 'Period'
+        || event.key === ';'
+        || event.key === ':'
+        || event.key === '.';
+      if (!isMacShortcutKey) return;
+      if (!event.metaKey || !event.shiftKey) return;
+      if (event.ctrlKey || event.altKey) return;
+    } else {
+      if (event.code !== 'Period' && event.key !== '.') return;
+      if (!event.ctrlKey || !event.shiftKey) return;
+      if (event.metaKey) return;
+    }
 
     const input = findPromptInput();
     const editable = getEditableTarget(input);
@@ -1126,9 +1195,14 @@
       getStoredBorderColor()
     ]);
     insertUi();
+    updateFabPlacement();
     startPromptWatch();
     bindPromptActivityListeners();
     document.addEventListener('keydown', handleGlobalKeydown, true);
+    const injected = document.querySelector('#promptlab-root');
+    if (!injected) {
+      console.warn('[PromptLab] Injection failed on this page.');
+    }
 
     const observer = new MutationObserver((mutations) => {
       const hasExternalLayoutMutation = mutations.some((mutation) => {
