@@ -72,6 +72,10 @@ npm run dev
 - `GET /api/logs/export/json`: 로그를 JSON으로 내보내기
 - `GET /api/logs/export/csv`: 로그를 CSV로 내보내기
 
+## 라이선스
+
+이 프로젝트는 [MIT License](./LICENSE)로 배포됩니다.
+
 ---
 
 # PromptLab Extension
@@ -134,3 +138,7 @@ Main APIs:
 - `POST /api/log`: Store or update anonymous session metadata
 - `GET /api/logs/export/json`: Export logs as JSON
 - `GET /api/logs/export/csv`: Export logs as CSV
+
+## License
+
+This project is distributed under the [MIT License](./LICENSE).
