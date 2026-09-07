@@ -158,8 +158,8 @@ function getPromptImprovementTokenLimit() {
 }
 
 function getPromptImprovementModel() {
-  const model = String(process.env.OPENAI_REWRITE_MODEL || process.env.OPENAI_PROMPT_MODEL || 'gpt-4.1-mini').trim();
-  return model || 'gpt-4.1-mini';
+  const model = String(process.env.OPENAI_REWRITE_MODEL || process.env.OPENAI_PROMPT_MODEL || 'gpt-5.6-luna').trim();
+  return model || 'gpt-5.6-luna';
 }
 
 function createPromptImprovementSchema() {
