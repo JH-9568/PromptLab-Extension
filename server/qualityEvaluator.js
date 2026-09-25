@@ -56,7 +56,7 @@ function getEvaluationModel() {
 }
 
 function isReasoningModel(model) {
-  return /^(gpt-5|o[134])\b/i.test(String(model || ''));
+  return /^(gpt-[56]|o[134])\b/i.test(String(model || ''));
 }
 
 function createEvaluationSchema() {

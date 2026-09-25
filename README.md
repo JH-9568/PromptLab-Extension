@@ -59,7 +59,7 @@ npm run dev
 주요 환경 변수:
 
 - `OPENAI_API_KEY`: OpenAI API 키
-- `OPENAI_REWRITE_MODEL` 또는 `OPENAI_PROMPT_MODEL`: 프롬프트 개선 모델 (기본값: `gpt-5.6-luna`)
+- `OPENAI_REWRITE_MODEL` 또는 `OPENAI_PROMPT_MODEL`: 프롬프트 개선 모델 (기본값: `gpt-6-luna`)
 - `OPENAI_MAX_COMPLETION_TOKENS`: 프롬프트 개선 응답 토큰 상한
 - `OPENAI_REASONING_EFFORT`: reasoning 모델의 개선 호출 effort
 - `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`: Supabase 로그 저장 설정

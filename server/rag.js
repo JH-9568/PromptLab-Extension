@@ -149,7 +149,7 @@ function parseGenerationPayload(content, originalPrompt, attachmentContext) {
 }
 
 function isReasoningModel(model) {
-  return /^(gpt-5|o[134])\b/i.test(String(model || ''));
+  return /^(gpt-[56]|o[134])\b/i.test(String(model || ''));
 }
 
 function getPromptImprovementTokenLimit() {
@@ -158,8 +158,8 @@ function getPromptImprovementTokenLimit() {
 }
 
 function getPromptImprovementModel() {
-  const model = String(process.env.OPENAI_REWRITE_MODEL || process.env.OPENAI_PROMPT_MODEL || 'gpt-5.6-luna').trim();
-  return model || 'gpt-5.6-luna';
+  const model = String(process.env.OPENAI_REWRITE_MODEL || process.env.OPENAI_PROMPT_MODEL || 'gpt-6-luna').trim();
+  return model || 'gpt-6-luna';
 }
 
 function createPromptImprovementSchema() {
