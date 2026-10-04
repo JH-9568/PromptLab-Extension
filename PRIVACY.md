@@ -1,6 +1,6 @@
 # PromptLab 개인정보처리방침
 
-최종 업데이트: 2026-09-05
+최종 업데이트: 2026-10-04
 
 PromptLab은 사용자가 ChatGPT, Gemini, Claude에서 작성한 프롬프트를 더 명확하게 개선할 수 있도록 돕는 Chrome 확장 프로그램입니다. PromptLab은 프롬프트 개선 품질을 평가하고 기능을 개선하기 위해 제한적인 익명 사용 메타데이터를 수집합니다.
 
@@ -42,6 +42,8 @@ PromptLab은 다음 데이터를 의도적으로 저장하지 않습니다.
 
 ## 데이터 공유
 
+사용자가 저장한 기본 조건은 Chrome 로컬 저장소에 보관됩니다. 적용 스위치가 켜져 있으면 기본 조건 텍스트가 개선 요청과 함께 PromptLab 백엔드와 OpenAI API로 전송됩니다. 기본 조건 전문을 분석 로그 필드에 저장하지 않으며, 선택된 개선 강도만 메타데이터에 포함됩니다. 기본 조건은 확장 프로그램 팝업에서 내용을 지운 뒤 저장해 삭제할 수 있습니다.
+
 PromptLab은 개선된 프롬프트를 생성하기 위해 사용자가 입력한 프롬프트 텍스트를 백엔드 서버로 전송합니다. 백엔드 서버는 프롬프트 재작성 기능을 제공하기 위해 해당 프롬프트 텍스트를 OpenAI API로 전송할 수 있습니다. PromptLab 로그에는 프롬프트 전문을 저장하지 않습니다.
 
 세션 메타데이터는 Supabase에 저장됩니다. 백엔드 서버는 Render에서 호스팅됩니다.
@@ -62,7 +64,7 @@ PromptLab은 연구 및 제품 개선을 위해 익명 세션 메타데이터를
 
 # PromptLab Privacy Policy
 
-Last updated: 2026-09-05
+Last updated: 2026-10-04
 
 PromptLab helps users improve prompts on ChatGPT, Gemini, and Claude and collects limited anonymous usage metadata to evaluate prompt improvement quality.
 
@@ -103,6 +105,8 @@ Collected metadata is used to:
 - Export aggregate or session-level research data
 
 ## Data Sharing
+
+Saved preferences are stored in Chrome local storage. When enabled, preference text is sent to the PromptLab backend and OpenAI API with improvement requests. The full preference text is not stored in analytics fields; only the selected rewrite mode is included as metadata. To delete saved preferences, clear the text in the extension popup and save.
 
 PromptLab sends prompt text to the backend server to generate an improved prompt. The backend may send prompt text to OpenAI API for prompt rewriting. Prompt text is not stored by PromptLab logs.
 
