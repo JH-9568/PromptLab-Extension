@@ -9,6 +9,7 @@ const { appendLog, logsToCsv, readLogs } = require('./logger');
 const { analyzePrompt } = require('./promptAnalyzer');
 const { scheduleQualityEvaluation, takeQualityEvaluation } = require('./qualityEvaluator');
 const { generateImprovedPrompt } = require('./rag');
+const { normalizeRewriteSettings } = require('./rewriteSettings');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -82,7 +83,8 @@ app.post('/api/improve', async (req, res, next) => {
       original_prompt: originalPrompt,
       task_category: taskCategory = 'general',
       client_language: clientLanguage = '',
-      attachment_context: attachmentContext = {}
+      attachment_context: attachmentContext = {},
+      rewrite_settings: rawRewriteSettings
     } = req.body || {};
 
     const validationErrors = [
@@ -96,13 +98,15 @@ app.post('/api/improve', async (req, res, next) => {
     }
 
     const normalizedCategory = String(taskCategory || 'general').toLowerCase();
+    const rewriteSettings = normalizeRewriteSettings(rawRewriteSettings);
     const guidelines = await loadGuidelines(normalizedCategory);
     const generation = await generateImprovedPrompt({
       originalPrompt,
       taskCategory: normalizedCategory,
       clientLanguage,
       guidelineContent: guidelines.content,
-      attachmentContext
+      attachmentContext,
+      rewriteSettings
     });
     const beforeAnalysis = generation.before_analysis || analyzePrompt(originalPrompt);
     const afterAnalysis = generation.after_analysis || analyzePrompt(generation.improved_prompt);
@@ -116,6 +120,7 @@ app.post('/api/improve', async (req, res, next) => {
         category: normalizedCategory,
         files: guidelines.files,
         improvement: {
+          mode: rewriteSettings.mode,
           type: generation.improvement_type,
           reason: generation.improvement_reason
         },
@@ -124,6 +129,7 @@ app.post('/api/improve', async (req, res, next) => {
       attachment_context: generation.attachment_context,
       improved_prompt: generation.improved_prompt,
       improvement_type: generation.improvement_type,
+      rewrite_mode: rewriteSettings.mode,
       improvement_reason: generation.improvement_reason,
       provider: generation.provider,
       fallback_reason: generation.fallback_reason,
@@ -184,7 +190,7 @@ app.use((error, req, res, next) => {
   console.error(error);
   const status = error.status || 500;
   return res.status(status).json({
-    error: status === 502 ? 'OpenAI prompt improvement failed.' : 'Internal server error.',
+    error: status === 400 ? 'Invalid request body.' : status === 502 ? 'OpenAI prompt improvement failed.' : 'Internal server error.',
     code: error.code,
     message: process.env.NODE_ENV === 'production' && status !== 502 ? undefined : error.message
   });

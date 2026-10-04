@@ -8,7 +8,8 @@
     "dev": "nodemon --ignore logs index.js",
     "test:analyzer": "node scripts/testPromptAnalyzer.js",
     "test:language": "node scripts/testPromptLanguage.js",
-    "test:quality": "node scripts/testPromptQuality.js"
+    "test:quality": "node scripts/testPromptQuality.js",
+    "test:settings": "node scripts/testRewriteSettings.js"
   },
   "keywords": [
     "prompt",

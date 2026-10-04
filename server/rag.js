@@ -1,6 +1,7 @@
 const OpenAI = require('openai');
 
 const { analyzePrompt } = require('./promptAnalyzer');
+const { normalizeRewriteSettings, buildPreferencePolicy } = require('./rewriteSettings');
 
 const ANALYSIS_KEYS = [
   'has_goal',
@@ -212,10 +213,10 @@ async function createJsonChatCompletion({ client, model, messages }) {
   return client.chat.completions.create(request);
 }
 
-async function createCompactChatCompletion({ client, model, messages }) {
+async function createCompactChatCompletion({ client, model, messages, rewriteSettings }) {
   const request = {
     model,
-    max_completion_tokens: 400,
+    max_completion_tokens: rewriteSettings?.mode === 'detailed' || rewriteSettings?.instructions ? getPromptImprovementTokenLimit() : 400,
     messages
   };
 
@@ -533,8 +534,10 @@ function isUnderImprovedRewrite(originalPrompt, improvedPrompt) {
   return overlapRatio >= 0.7 && addedTokenCount <= 3 && improvedLength <= lengthLimit;
 }
 
-function getQualityIssues(originalPrompt, improvedPrompt) {
+function getQualityIssues(originalPrompt, improvedPrompt, rewriteSettings = normalizeRewriteSettings()) {
   const issues = [];
+  const sourcePrompt = [originalPrompt, rewriteSettings.instructions].filter(Boolean).join('\n');
+  const isLight = rewriteSettings.mode === 'light';
 
   if (hasPromptLanguageMismatch(originalPrompt, improvedPrompt)) {
     issues.push('prompt_language_mismatch');
@@ -544,15 +547,15 @@ function getQualityIssues(originalPrompt, improvedPrompt) {
     issues.push('clarification_first_for_answerable_prompt');
   }
 
-  if (shouldCompactShortRewrite(originalPrompt, improvedPrompt)) {
+  if (shouldCompactShortRewrite(originalPrompt, improvedPrompt, rewriteSettings)) {
     issues.push('over_expanded_short_prompt');
   }
 
-  if (hasInventedExactCount(originalPrompt, improvedPrompt)) {
+  if (hasInventedExactCount(sourcePrompt, improvedPrompt)) {
     issues.push('invented_exact_count');
   }
 
-  if (hasAppendStyleRewrite(originalPrompt, improvedPrompt)) {
+  if (!isLight && hasAppendStyleRewrite(originalPrompt, improvedPrompt)) {
     issues.push('append_style_rewrite');
   }
 
@@ -560,18 +563,30 @@ function getQualityIssues(originalPrompt, improvedPrompt) {
     issues.push('awkward_language_pattern');
   }
 
-  if (isWebServiceIdeaPrompt(originalPrompt) && !hasWebServiceIdeaLens(improvedPrompt)) {
+  if (!isLight && !rewriteSettings.instructions && isWebServiceIdeaPrompt(originalPrompt) && !hasWebServiceIdeaLens(improvedPrompt)) {
     issues.push('weak_web_service_idea_rewrite');
   }
 
-  if (isUnderImprovedRewrite(originalPrompt, improvedPrompt)) {
+  if (!isLight && !rewriteSettings.instructions && isUnderImprovedRewrite(originalPrompt, improvedPrompt)) {
     issues.push('under_improved_rewrite');
   }
 
   return issues;
 }
 
-function buildRewritePolicy(originalPrompt) {
+function buildRewritePolicy(originalPrompt, rewriteSettings) {
+  if (rewriteSettings.mode === 'light') {
+    return [
+      'Rewrite the prompt with minimal edits to spelling, grammar, and clarity.',
+      'Do not answer the prompt.',
+      'Keep all explicit requirements and preserve the original wording and length as closely as possible.',
+      'Do not turn a general question into a list of subtopics, criteria, stages, examples, or tradeoffs.',
+      'Only add requirements explicitly supplied in applicable saved preferences.',
+      'A small wording edit is a complete successful rewrite; do not expand it to make the improvement look bigger.',
+      'For a clear original, returning an almost identical prompt is acceptable.',
+      'If the subject is missing, ask the AI assistant to request one concise clarification.'
+    ].join(' ');
+  }
   const text = String(originalPrompt || '');
   const wordCount = countWords(text);
   const hasExplicitCount = hasExplicitQuantity(text);
@@ -590,7 +605,7 @@ function buildRewritePolicy(originalPrompt) {
     'For concept prompts such as "우주, 여행 같은 느낌", preserve the concept or mood. Do not force problem-solving wording unless the original explicitly asks to solve a problem.',
     'Keep it concise, but add enough useful answer design that the rewrite feels meaningfully better than the original.',
     'Never make a weak rewrite that only adds generic adjectives such as clearer, specific, practical, actionable, or executable.',
-    'If the original is already understandable, add two or three natural answer-quality requirements, such as output structure, criteria, priorities, constraints, examples, assumptions, tradeoffs, edge cases, success metrics, execution steps, expected effects, or limitations.',
+    'If the original is already understandable, add natural answer-quality requirements aligned with the selected mode.',
     'You may add examples, constraints, comparison criteria, output structure, or evaluation criteria when they are a natural extension of the original task.',
     'Do not invent private facts, user background, exact numbers, deadlines, budget, location, file contents, target audience, or business details not present in the original prompt.',
     'Do not add named tools, technologies, platforms, or methods unless the original prompt mentions them or the task clearly asks for tool/method examples.',
@@ -599,7 +614,7 @@ function buildRewritePolicy(originalPrompt) {
     'If the prompt is too vague to improve safely, rewrite it as an instruction for the assistant to ask one concise clarifying question.',
     hasExplicitCount ? 'The user requested a quantity; preserve it.' : 'The user did not request a quantity; do not add one.',
     hasExplicitFormat ? 'The user requested an output format; preserve it.' : 'The user did not request a specific output format; do not force one.',
-    wordCount <= 20
+    wordCount <= 20 && rewriteSettings.mode === 'balanced'
       ? 'For short prompts, keep the rewrite to 1 or 2 sentences and under about 220 Korean characters or 55 English words. Add two to four aligned answer requirements when the prompt is generally answerable. Do not turn it into a questionnaire.'
       : 'For detailed prompts, preserve the requested depth and improve clarity, structure, and answer quality where it helps.'
   ].join(' ');
@@ -645,14 +660,19 @@ function stripKoreanRequestEnding(value) {
     .trim();
 }
 
-function shouldCompactShortRewrite(originalPrompt, improvedPrompt) {
+function shouldCompactShortRewrite(originalPrompt, improvedPrompt, rewriteSettings = normalizeRewriteSettings()) {
   const originalWordCount = countWords(originalPrompt);
   if (originalWordCount > 20) return false;
 
   const originalLength = countKoreanAwareLength(originalPrompt);
   const improvedLength = countKoreanAwareLength(improvedPrompt);
-  const hardLimit = hasKoreanText(improvedPrompt) ? 220 : 55;
-  const expansionLimit = Math.max(originalLength * 4, hardLimit);
+  const hardLimit = rewriteSettings.mode === 'detailed'
+    ? (hasKoreanText(improvedPrompt) ? 650 : 150)
+    : rewriteSettings.mode === 'light'
+      ? (hasKoreanText(improvedPrompt) ? 130 : 30)
+      : (hasKoreanText(improvedPrompt) ? 220 : 55);
+  const preferenceAllowance = countKoreanAwareLength(rewriteSettings.instructions);
+  const expansionLimit = Math.max(originalLength * 4, hardLimit) + preferenceAllowance;
   const toolPatterns = [
     /excel/i,
     /google sheets/i,
@@ -661,20 +681,22 @@ function shouldCompactShortRewrite(originalPrompt, improvedPrompt) {
     /vba|office add-?in|graph api|power automate/i
   ];
   const mentionedToolCount = toolPatterns.filter((pattern) => pattern.test(improvedPrompt)).length;
-  const originalMentionedToolCount = toolPatterns.filter((pattern) => pattern.test(originalPrompt)).length;
+  const originalMentionedToolCount = toolPatterns.filter((pattern) => pattern.test(`${originalPrompt}\n${rewriteSettings.instructions}`)).length;
   const hasInventedToolPileup = mentionedToolCount >= 3 && originalMentionedToolCount === 0;
 
   return improvedLength > expansionLimit || hasInventedToolPileup;
 }
 
-async function compactShortRewrite({ client, model, originalPrompt, improvedPrompt, clientLanguage, attachmentContext, qualityIssues = [] }) {
+async function compactShortRewrite({ client, model, originalPrompt, improvedPrompt, clientLanguage, attachmentContext, qualityIssues = [], rewriteSettings }) {
   const useKorean = shouldUseKorean(originalPrompt, clientLanguage);
   const isWeakRewrite = qualityIssues.includes('under_improved_rewrite')
     || qualityIssues.includes('append_style_rewrite')
     || qualityIssues.includes('weak_web_service_idea_rewrite')
     || qualityIssues.includes('awkward_language_pattern')
     || qualityIssues.includes('prompt_language_mismatch');
-  const maxInstruction = useKorean
+  const maxInstruction = rewriteSettings.mode === 'detailed' || rewriteSettings.instructions || countWords(originalPrompt) > 20
+    ? 'the length needed to preserve the original requirements and applicable preferences; follow the selected mode'
+    : useKorean
     ? (isWeakRewrite ? '220자 이내의 한국어 1~2문장' : '120자 이내의 한국어 한 문장')
     : (isWeakRewrite ? '1 or 2 English sentences under 55 words' : 'one English sentence under 30 words');
   const attachmentInstruction = hasAttachmentContext(attachmentContext)
@@ -688,6 +710,7 @@ async function compactShortRewrite({ client, model, originalPrompt, improvedProm
   const response = await createCompactChatCompletion({
     client,
     model,
+    rewriteSettings,
     messages: [
       {
         role: 'system',
@@ -706,10 +729,10 @@ async function compactShortRewrite({ client, model, originalPrompt, improvedProm
           'Fix awkward Korean particles or broken phrases. Never produce fragments like "같은 는 어때", "의 로", "을 에", or "를 에".',
           'If the original is an idea seed such as "X 같은 아이디어는 어때? 웹서비스 만들건데", rewrite it as a request to evaluate or develop X into a web service.',
           'If the original asks for a mood or concept such as "우주, 여행 같은 느낌", keep it as a concept/mood request, not a problem-solving request.',
-          isWeakRewrite
+          rewriteSettings.mode === 'light' ? 'Only clarify wording; do not expand the task.' : isWeakRewrite
             ? 'Keep two to four directly relevant answer-quality requirements.'
             : 'Keep one directly relevant answer-quality requirement when it improves usefulness.',
-          isWeakRewrite
+          rewriteSettings.mode === 'light' ? 'A minimal wording improvement is sufficient in light mode.' : isWeakRewrite
             ? 'The current rewrite is too similar to the original. Do not merely add generic adjectives. Add two to four aligned answer requirements such as examples, constraints, output structure, evaluation criteria, execution approach, expected effect, priority, tradeoff, limitation, or decision basis.'
             : 'Remove unnecessary expansion while preserving one useful answer-quality requirement.',
           qualityIssues.includes('append_style_rewrite')
@@ -735,7 +758,8 @@ async function compactShortRewrite({ client, model, originalPrompt, improvedProm
           'Keep safe examples, constraints, structure, tradeoffs, and edge cases when they naturally fit the original intent.',
           'Remove unsupported private facts, arbitrary exact counts, and unrelated named tools or platforms.',
           'Remove generic meta-instructions about asking for more specificity unless the original prompt asks for them.',
-          attachmentInstruction
+          attachmentInstruction,
+          buildPreferencePolicy(rewriteSettings)
         ].join(' ')
       },
       {
@@ -743,6 +767,8 @@ async function compactShortRewrite({ client, model, originalPrompt, improvedProm
         content: [
           'Original prompt:',
           originalPrompt,
+          'Saved preferences:',
+          rewriteSettings.instructions || '(none)',
           '',
           isWeakRewrite ? 'Weak rewrite:' : 'Over-expanded rewrite:',
           improvedPrompt,
@@ -760,11 +786,12 @@ async function compactShortRewrite({ client, model, originalPrompt, improvedProm
   return compactPrompt || null;
 }
 
-async function repairPromptLanguage({ client, model, originalPrompt, improvedPrompt }) {
+async function repairPromptLanguage({ client, model, originalPrompt, improvedPrompt, rewriteSettings = normalizeRewriteSettings() }) {
   const originalIsKorean = hasKoreanText(originalPrompt);
   const response = await createCompactChatCompletion({
     client,
     model,
+    rewriteSettings,
     messages: [
       {
         role: 'system',
@@ -776,7 +803,8 @@ async function repairPromptLanguage({ client, model, originalPrompt, improvedPro
             ? 'Write the final prompt only in Korean.'
             : 'Write the final prompt in the same language as the original prompt. Do not use Korean or Hangul characters.',
           'Preserve the useful details and intent from the candidate rewrite.',
-          'Keep the result concise and natural.'
+          'Keep the result concise and natural.',
+          buildPreferencePolicy(rewriteSettings)
         ].join(' ')
       },
       {
@@ -784,6 +812,8 @@ async function repairPromptLanguage({ client, model, originalPrompt, improvedPro
         content: [
           'Original prompt:',
           originalPrompt,
+          'Saved preferences:',
+          rewriteSettings.instructions || '(none)',
           '',
           'Candidate rewrite with the wrong language:',
           improvedPrompt,
@@ -806,9 +836,10 @@ async function reviseGeneratedPayloadIfNeeded({
   payload,
   originalPrompt,
   clientLanguage,
-  attachmentContext
+  attachmentContext,
+  rewriteSettings
 }) {
-  const qualityIssues = getQualityIssues(originalPrompt, payload.improved_prompt);
+  const qualityIssues = getQualityIssues(originalPrompt, payload.improved_prompt, rewriteSettings);
   if (qualityIssues.length === 0) return payload;
 
   let revisedPrompt = await compactShortRewrite({
@@ -818,12 +849,13 @@ async function reviseGeneratedPayloadIfNeeded({
     improvedPrompt: payload.improved_prompt,
     clientLanguage,
     attachmentContext,
-    qualityIssues
+    qualityIssues,
+    rewriteSettings
   });
 
   if (!revisedPrompt) return payload;
 
-  const revisedIssues = getQualityIssues(originalPrompt, revisedPrompt);
+  const revisedIssues = getQualityIssues(originalPrompt, revisedPrompt, rewriteSettings);
   const severeRevisedIssues = revisedIssues.filter((issue) => [
     'clarification_first_for_answerable_prompt',
     'invented_exact_count',
@@ -841,7 +873,8 @@ async function reviseGeneratedPayloadIfNeeded({
       improvedPrompt: revisedPrompt,
       clientLanguage,
       attachmentContext,
-      qualityIssues: severeRevisedIssues
+      qualityIssues: severeRevisedIssues,
+      rewriteSettings
     });
 
     if (secondRevision) {
@@ -856,7 +889,8 @@ async function reviseGeneratedPayloadIfNeeded({
         client,
         model,
         originalPrompt,
-        improvedPrompt: revisedPrompt
+        improvedPrompt: revisedPrompt,
+        rewriteSettings
       });
 
       if (languageRepairedPrompt) {
@@ -908,12 +942,13 @@ async function reviseGeneratedPayloadIfNeeded({
   };
 }
 
-async function generateImprovedPrompt({ originalPrompt, taskCategory, clientLanguage, guidelineContent, attachmentContext }) {
+async function generateImprovedPrompt({ originalPrompt, taskCategory, clientLanguage, guidelineContent, attachmentContext, rewriteSettings: rawRewriteSettings }) {
+  const rewriteSettings = normalizeRewriteSettings(rawRewriteSettings);
   const normalizedClientLanguage = normalizeClientLanguage(clientLanguage);
   const trimmedGuidelineContent = trimGuidelineContent(guidelineContent);
   const normalizedAttachmentContext = normalizeAttachmentContext(attachmentContext);
 
-  if (isVeryVaguePrompt(originalPrompt)) {
+  if (isVeryVaguePrompt(originalPrompt) && !rewriteSettings.instructions) {
     return buildGeneratedResult({
       improvedPrompt: buildVeryVaguePrompt({
         originalPrompt,
@@ -955,7 +990,7 @@ async function generateImprovedPrompt({ originalPrompt, taskCategory, clientLang
             'Your job is to rewrite one user prompt so it is more likely to produce a useful answer.',
             'Do not answer the prompt.',
             `UI language hint: ${getTargetLanguageLabel(normalizedClientLanguage)}. Use this only when the original prompt has no clear language.`,
-            buildRewritePolicy(originalPrompt),
+            buildRewritePolicy(originalPrompt, rewriteSettings),
             'Task category is only a hint; prioritize the original prompt.',
             'Write the improved prompt as a user instruction addressed to an AI assistant.',
             'The improved_prompt must use the same language as the original prompt unless the user explicitly asks for another language.',
@@ -975,9 +1010,10 @@ async function generateImprovedPrompt({ originalPrompt, taskCategory, clientLang
             normalizedAttachmentContext.has_attachment
               ? `The UI detected ${normalizedAttachmentContext.attachment_count} attachment(s), but file contents and file names are not available. If the prompt refers to "this", "it", "이거", a document, image, file, summary, analysis, or review, treat that as referring to the attachment. Add a concise attachment-reference phrase in the same language as the original prompt, such as "using the attached file" for English or the natural equivalent in the original language. Do not ask the user to paste, upload, or provide the attached content again. Do not claim to know the contents. Treat has_reference as true.`
               : 'No attachment was detected by the UI.',
-            trimmedGuidelineContent
+            trimmedGuidelineContent && rewriteSettings.mode !== 'light'
               ? `Use these product guidelines as background, but do not mechanically apply every guideline:\n${trimmedGuidelineContent}`
-              : ''
+              : '',
+            buildPreferencePolicy(rewriteSettings)
           ].join(' ')
         },
         {
@@ -991,7 +1027,10 @@ async function generateImprovedPrompt({ originalPrompt, taskCategory, clientLang
             'Original prompt:',
             originalPrompt,
             '',
-            'Rewrite the original prompt only. The rewrite must be meaningfully more useful than the original, not just a synonym or grammar polish. Keep short prompts compact. Do not add named tools, named methods, named platforms, exact counts, parenthetical option lists, arbitrary examples, long questionnaires, or unrelated subtopics unless they are already in the original prompt.'
+            'Saved preferences:',
+            rewriteSettings.instructions || '(none)',
+            '',
+            'Rewrite the original prompt only. Follow the selected rewrite mode and include applicable saved preferences. Do not answer the prompt or add unsupported facts or unrelated subtopics.'
           ].join('\n')
         }
       ]
@@ -1005,7 +1044,8 @@ async function generateImprovedPrompt({ originalPrompt, taskCategory, clientLang
         payload: parsedPayload,
         originalPrompt,
         clientLanguage: normalizedClientLanguage,
-        attachmentContext: normalizedAttachmentContext
+        attachmentContext: normalizedAttachmentContext,
+        rewriteSettings
       });
     }
 
@@ -1040,6 +1080,10 @@ async function generateImprovedPrompt({ originalPrompt, taskCategory, clientLang
 module.exports = {
   generateImprovedPrompt,
   _test: {
+    getQualityIssues,
+    shouldCompactShortRewrite,
+    compactShortRewrite,
+    reviseGeneratedPayloadIfNeeded,
     hasPromptLanguageMismatch,
     repairPromptLanguage,
     shouldUseKorean
