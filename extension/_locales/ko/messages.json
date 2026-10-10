@@ -1,4 +1,49 @@
 {
+  "rewriteStrength": {
+    "message": "개선 강도"
+  },
+  "modeLight": {
+    "message": "가볍게"
+  },
+  "modeBalanced": {
+    "message": "균형"
+  },
+  "modeDetailed": {
+    "message": "자세히"
+  },
+  "modeLightDescription": {
+    "message": "표현만 다듬고 원문의 의도와 범위를 유지합니다."
+  },
+  "modeBalancedDescription": {
+    "message": "명확한 표현과 필요한 조건을 균형 있게 보완합니다."
+  },
+  "modeDetailedDescription": {
+    "message": "관련된 구조, 기준, 실행 단계를 더 구체화합니다."
+  },
+  "defaultInstructions": {
+    "message": "내 기본 조건"
+  },
+  "applyPreferences": {
+    "message": "내 기본 조건 적용"
+  },
+  "instructionsPlaceholder": {
+    "message": "코드 예시는 TypeScript로 작성해줘.\n불필요한 서론은 제외해줘.\n실용적인 예시를 함께 설명해줘."
+  },
+  "savePreferences": {
+    "message": "조건 저장"
+  },
+  "preferencesPrivacy": {
+    "message": "이 브라우저에 저장되며, 켜면 PromptLab과 OpenAI에 전송됩니다."
+  },
+  "settingsSaved": {
+    "message": "저장했습니다"
+  },
+  "unsavedPreferences": {
+    "message": "저장하지 않은 조건이 있습니다"
+  },
+  "settingsSaveError": {
+    "message": "저장하지 못했습니다. 다시 시도해 주세요."
+  },
   "extensionName": {
     "message": "PromptLab - Prompt Improver for ChatGPT, Claude, Gemini"
   },
@@ -36,7 +81,7 @@
     "message": "프롬프트를 개선하고 있습니다..."
   },
   "improvingInline": {
-    "message": "프롬프트 개선 중"
+    "message": "프롬프트 다듬는 중"
   },
   "ready": {
     "message": "개선된 프롬프트가 준비되었습니다."
@@ -89,13 +134,13 @@
     "message": "Loading..."
   },
   "checking": {
-    "message": "Checking..."
+    "message": "확인 중"
   },
   "connected": {
-    "message": "Connected"
+    "message": "연결됨"
   },
   "disconnected": {
-    "message": "Disconnected"
+    "message": "연결 안 됨"
   },
   "borderColor": {
     "message": "입력창 테두리 색상"

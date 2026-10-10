@@ -1,4 +1,49 @@
 {
+  "rewriteStrength": {
+    "message": "Rewrite strength"
+  },
+  "modeLight": {
+    "message": "Light"
+  },
+  "modeBalanced": {
+    "message": "Balanced"
+  },
+  "modeDetailed": {
+    "message": "Detailed"
+  },
+  "modeLightDescription": {
+    "message": "Minimal edits. Keep your wording and scope."
+  },
+  "modeBalancedDescription": {
+    "message": "Clearer wording with a few useful details."
+  },
+  "modeDetailedDescription": {
+    "message": "Add relevant structure, criteria, and steps."
+  },
+  "defaultInstructions": {
+    "message": "My preferences"
+  },
+  "applyPreferences": {
+    "message": "Apply my preferences"
+  },
+  "instructionsPlaceholder": {
+    "message": "Use TypeScript for code examples.\nSkip unnecessary introductions.\nExplain with practical examples."
+  },
+  "savePreferences": {
+    "message": "Save preferences"
+  },
+  "preferencesPrivacy": {
+    "message": "Stored in this browser. Sent to PromptLab and OpenAI when enabled."
+  },
+  "settingsSaved": {
+    "message": "Saved"
+  },
+  "unsavedPreferences": {
+    "message": "Unsaved preferences"
+  },
+  "settingsSaveError": {
+    "message": "Could not save. Please try again."
+  },
   "extensionName": {
     "message": "PromptLab - Prompt Improver for ChatGPT, Claude, Gemini"
   },
@@ -36,7 +81,7 @@
     "message": "Improving the prompt..."
   },
   "improvingInline": {
-    "message": "Improving prompt"
+    "message": "Refining prompt"
   },
   "ready": {
     "message": "Improved prompt is ready."

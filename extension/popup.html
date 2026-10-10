@@ -4,293 +4,60 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>PromptLab</title>
-    <style>
-      :root {
-        color-scheme: light;
-      }
-
-      * {
-        box-sizing: border-box;
-        letter-spacing: 0;
-      }
-
-      body {
-        width: 340px;
-        margin: 0;
-        background: linear-gradient(180deg, #f8fbff 0%, #ffffff 50%);
-        color: #111827;
-        font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-        font-size: 13px;
-      }
-
-      .app-header {
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        gap: 16px;
-        padding: 16px 16px 12px;
-        border-bottom: 1px solid #e4e4e7;
-        background: linear-gradient(180deg, rgba(250, 249, 255, 0.94), rgba(255, 255, 255, 0.98));
-      }
-
-      .brand {
-        display: flex;
-        align-items: center;
-        min-width: 0;
-        gap: 10px;
-      }
-
-      .brand img {
-        width: 36px;
-        height: 36px;
-        border-radius: 8px;
-      }
-
-      h1 {
-        margin: 0;
-        font-size: 16px;
-        line-height: 1.2;
-      }
-
-      .tagline {
-        margin: 3px 0 0;
-        color: #71717a;
-        font-size: 11px;
-        line-height: 1.3;
-      }
-
-      .status {
-        display: inline-flex;
-        align-items: center;
-        flex: 0 0 auto;
-        gap: 6px;
-        color: #71717a;
-        font-size: 11px;
-        font-weight: 650;
-        white-space: nowrap;
-      }
-
-      .status::before {
-        width: 7px;
-        height: 7px;
-        border-radius: 50%;
-        background: #a1a1aa;
-        content: "";
-      }
-
-      .status.is-ok {
-        color: #047857;
-      }
-
-      .status.is-ok::before {
-        background: #10b981;
-      }
-
-      .status.is-error {
-        color: #b91c1c;
-      }
-
-      .status.is-error::before {
-        background: #ef4444;
-      }
-
-      main {
-        padding: 16px;
-      }
-
-      .setting-heading {
-        display: flex;
-        align-items: baseline;
-        justify-content: space-between;
-        gap: 12px;
-      }
-
-      .setting-title {
-        font-size: 13px;
-        font-weight: 700;
-      }
-
-      .selected-color {
-        color: #71717a;
-        font-size: 11px;
-        font-weight: 600;
-      }
-
-      .color-swatches {
-        display: grid;
-        grid-template-columns: repeat(5, 1fr);
-        gap: 8px;
-        margin-top: 14px;
-        margin-bottom: 4px;
-      }
-
-      .setting-help {
-        margin: 10px 0 0;
-        color: #71717a;
-        font-size: 11px;
-        line-height: 1.45;
-      }
-
-      .color-swatch {
-        position: relative;
-        width: 100%;
-        aspect-ratio: 1;
-        padding: 0;
-        border: 1px solid #d4d4d8;
-        border-radius: 10px;
-        background: #fafafa;
-        cursor: pointer;
-        transition: border-color 140ms ease, background-color 140ms ease, box-shadow 140ms ease;
-      }
-
-      .color-swatch::before {
-        position: absolute;
-        inset: 10px;
-        border-radius: 50%;
-        background: var(--swatch-color);
-        box-shadow: inset 0 0 0 1px rgba(24, 24, 27, 0.08);
-        content: "";
-      }
-
-      .color-swatch:hover {
-        border-color: #a1a1aa;
-        background: #f4f4f5;
-      }
-
-      .color-swatch.is-selected {
-        border-color: #27272a;
-        background: #ffffff;
-        box-shadow: 0 0 0 2px #27272a;
-      }
-
-      .color-swatch.is-selected::before {
-        transform: scale(0.94);
-      }
-
-      .color-swatch.is-selected::after {
-        position: absolute;
-        right: 5px;
-        bottom: 5px;
-        width: 14px;
-        height: 14px;
-        border: 2px solid #ffffff;
-        border-radius: 50%;
-        background: #18181b;
-        content: "";
-      }
-
-      .color-swatch:focus-visible {
-        outline: 2px solid #2563eb;
-        outline-offset: 3px;
-      }
-
-      .diagnostics {
-        margin-top: 18px;
-        padding-top: 14px;
-        border-top: 1px solid #e4e4e7;
-      }
-
-      .diagnostics summary {
-        color: #52525b;
-        font-size: 12px;
-        font-weight: 650;
-        cursor: pointer;
-        user-select: none;
-      }
-
-      .diagnostics-body {
-        margin-top: 12px;
-        padding: 12px;
-        border: 1px solid #e4e4e7;
-        border-radius: 10px;
-        background: #fafafa;
-      }
-
-      .detail-row + .detail-row {
-        margin-top: 10px;
-      }
-
-      .detail-label {
-        display: block;
-        margin-bottom: 3px;
-        color: #71717a;
-        font-size: 10px;
-        font-weight: 700;
-        text-transform: uppercase;
-      }
-
-      code {
-        display: block;
-        overflow: hidden;
-        color: #27272a;
-        font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
-        font-size: 11px;
-        text-overflow: ellipsis;
-        white-space: nowrap;
-      }
-
-      .links {
-        display: flex;
-        gap: 12px;
-        margin-top: 12px;
-      }
-
-      .links a {
-        color: #176b5b;
-        font-size: 11px;
-        text-decoration: none;
-        font-weight: 650;
-        border-bottom: 1px solid transparent;
-      }
-
-      .links a:hover {
-        border-bottom-color: #176b5b;
-        opacity: 0.94;
-      }
-    </style>
+    <link rel="stylesheet" href="popup.css">
   </head>
   <body>
     <header class="app-header">
       <div class="brand">
         <img src="icons/icon48.png" alt="">
-        <div>
-          <h1>PromptLab</h1>
-          <p class="tagline" data-i18n="popupTagline">Settings</p>
-        </div>
+        <div class="brand-copy"><h1>PromptLab</h1><div class="brand-meta"><p data-i18n="popupTagline">Settings</p><span id="server-status" class="status" data-i18n="checking">Checking...</span></div></div>
       </div>
-      <span id="server-status" class="status" data-i18n="checking">Checking...</span>
     </header>
     <main>
-      <section aria-labelledby="border-color-title">
-        <div class="setting-heading">
-          <span id="border-color-title" class="setting-title" data-i18n="borderColor">Input border color</span>
-          <span id="selected-color" class="selected-color"></span>
+      <section class="setting-section" aria-labelledby="rewrite-mode-title">
+        <h2 id="rewrite-mode-title" data-i18n="rewriteStrength">Rewrite strength</h2>
+        <div class="mode-control" role="radiogroup" aria-labelledby="rewrite-mode-title" aria-describedby="mode-description">
+          <label><input type="radio" name="rewrite-mode" value="light" disabled><span><i class="mode-mark" aria-hidden="true"><b></b></i><span data-i18n="modeLight">Light</span></span></label>
+          <label><input type="radio" name="rewrite-mode" value="balanced" checked disabled><span><i class="mode-mark" aria-hidden="true"><b></b><b></b></i><span data-i18n="modeBalanced">Balanced</span></span></label>
+          <label><input type="radio" name="rewrite-mode" value="detailed" disabled><span><i class="mode-mark" aria-hidden="true"><b></b><b></b><b></b></i><span data-i18n="modeDetailed">Detailed</span></span></label>
         </div>
-        <div class="color-swatches" role="group" aria-labelledby="border-color-title">
-          <button class="color-swatch" type="button" data-color="purple" data-color-i18n="colorPurple" style="--swatch-color: #a855f7"></button>
-          <button class="color-swatch" type="button" data-color="blue" data-color-i18n="colorBlue" style="--swatch-color: #3b82f6"></button>
-          <button class="color-swatch" type="button" data-color="green" data-color-i18n="colorGreen" style="--swatch-color: #10b981"></button>
-          <button class="color-swatch" type="button" data-color="orange" data-color-i18n="colorOrange" style="--swatch-color: #f97316"></button>
-          <button class="color-swatch" type="button" data-color="pink" data-color-i18n="colorPink" style="--swatch-color: #ec4899"></button>
-          <button class="color-swatch" type="button" data-color="red" data-color-i18n="colorRed" style="--swatch-color: #ef4444"></button>
-          <button class="color-swatch" type="button" data-color="teal" data-color-i18n="colorTeal" style="--swatch-color: #14b8a6"></button>
-          <button class="color-swatch" type="button" data-color="yellow" data-color-i18n="colorYellow" style="--swatch-color: #eab308"></button>
-          <button class="color-swatch" type="button" data-color="indigo" data-color-i18n="colorIndigo" style="--swatch-color: #6366f1"></button>
-          <button class="color-swatch" type="button" data-color="gray" data-color-i18n="colorGray" style="--swatch-color: #71717a"></button>
-        </div>
-        <p class="setting-help" data-i18n="borderColorHelp">Choose a color here. It applies instantly on supported AI sites.</p>
+        <p id="mode-description" class="mode-description" data-i18n="modeBalancedDescription">Clearer wording with useful detail.</p>
       </section>
+      <section class="setting-section" aria-labelledby="preferences-title">
+        <form id="preferences-form">
+          <div class="setting-heading">
+            <h2 id="preferences-title"><label for="custom-instructions" data-i18n="defaultInstructions">My preferences</label></h2>
+            <label class="toggle"><input id="instructions-enabled" type="checkbox" role="switch" data-i18n-aria="applyPreferences" disabled><span aria-hidden="true"></span></label>
+          </div>
+          <textarea id="custom-instructions" rows="4" maxlength="600" spellcheck="false" data-i18n-placeholder="instructionsPlaceholder" aria-describedby="instructions-privacy" disabled></textarea>
+          <div class="editor-footer">
+            <output id="instructions-count" for="custom-instructions">0 / 600</output>
+            <button id="save-preferences" class="save-button" type="submit" disabled><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M15.2 3a2 2 0 0 1 1.4.6l3.8 3.8a2 2 0 0 1 .6 1.4V19a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2z"/><path d="M17 21v-7a1 1 0 0 0-1-1H8a1 1 0 0 0-1 1v7"/><path d="M7 3v4a1 1 0 0 0 1 1h7"/></svg><span data-i18n="savePreferences">Save preferences</span></button>
+          </div>
+          <p id="instructions-privacy" class="privacy-note" data-i18n="preferencesPrivacy">Stored on this browser. Sent with improvements when enabled.</p>
+        </form>
+      </section>
+      <section class="setting-section" aria-labelledby="border-color-title">
+        <div class="setting-heading"><h2 id="border-color-title" data-i18n="borderColor">Input border color</h2><span id="selected-color" class="selected-color"></span></div>
+        <div class="color-swatches" role="group" aria-labelledby="border-color-title">
+          <button class="color-swatch" type="button" data-color="purple" data-color-i18n="colorPurple" style="--swatch-color:#a855f7"></button>
+          <button class="color-swatch" type="button" data-color="blue" data-color-i18n="colorBlue" style="--swatch-color:#3b82f6"></button>
+          <button class="color-swatch" type="button" data-color="green" data-color-i18n="colorGreen" style="--swatch-color:#10b981"></button>
+          <button class="color-swatch" type="button" data-color="orange" data-color-i18n="colorOrange" style="--swatch-color:#f97316"></button>
+          <button class="color-swatch" type="button" data-color="pink" data-color-i18n="colorPink" style="--swatch-color:#ec4899"></button>
+          <button class="color-swatch" type="button" data-color="red" data-color-i18n="colorRed" style="--swatch-color:#ef4444"></button>
+          <button class="color-swatch" type="button" data-color="teal" data-color-i18n="colorTeal" style="--swatch-color:#14b8a6"></button>
+          <button class="color-swatch" type="button" data-color="yellow" data-color-i18n="colorYellow" style="--swatch-color:#eab308"></button>
+          <button class="color-swatch" type="button" data-color="indigo" data-color-i18n="colorIndigo" style="--swatch-color:#6366f1"></button>
+          <button class="color-swatch" type="button" data-color="gray" data-color-i18n="colorGray" style="--swatch-color:#71717a"></button>
+        </div>
+      </section>
+      <p id="settings-status" role="status" aria-live="polite"></p>
       <details class="diagnostics">
         <summary data-i18n="dataAndDiagnostics">Data &amp; diagnostics</summary>
         <div class="diagnostics-body">
-          <div class="detail-row">
-            <span class="detail-label" data-i18n="anonymousUserId">Anonymous user_id</span>
-            <code id="user-id" data-i18n="loading">Loading...</code>
-          </div>
-          <div class="detail-row">
-            <span class="detail-label" data-i18n="server">Server</span>
-            <code>promptlab-server.onrender.com</code>
-          </div>
+          <div class="detail-row"><span data-i18n="anonymousUserId">Anonymous user_id</span><code id="user-id" data-i18n="loading">Loading...</code></div>
+          <div class="detail-row"><span data-i18n="server">Server</span><code>promptlab-server.onrender.com</code></div>
           <div class="links">
             <a href="https://promptlab-server.onrender.com/api/logs/export/json" target="_blank" rel="noreferrer" data-i18n="exportJson">Export JSON</a>
             <a href="https://promptlab-server.onrender.com/api/logs/export/csv" target="_blank" rel="noreferrer" data-i18n="exportCsv">Export CSV</a>
@@ -298,6 +65,7 @@
         </div>
       </details>
     </main>
+    <script src="settings.js"></script>
     <script src="popup.js"></script>
   </body>
 </html>

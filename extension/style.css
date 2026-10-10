@@ -1,7 +1,7 @@
 #promptlab-root,
 #promptlab-root * {
   box-sizing: border-box;
-  font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   letter-spacing: 0;
 }
 
@@ -10,11 +10,16 @@
   --promptlab-accent-light-rgb: 216, 180, 254;
   --promptlab-accent-dark-rgb: 88, 28, 135;
   --promptlab-bg: #ffffff;
-  --promptlab-text: #1f2937;
-  --promptlab-border: rgba(216, 180, 254, 0.5);
-  --promptlab-muted: #667085;
-  --promptlab-shadow: 0 18px 40px rgba(30, 41, 59, 0.25);
-  --promptlab-panel-radius: 16px;
+  --promptlab-text: #202322;
+  --promptlab-border: #e1e7e3;
+  --promptlab-muted: #6c7470;
+  --promptlab-shadow: 0 12px 32px #20232216;
+  --promptlab-panel-radius: 8px;
+  --promptlab-tool-bg: #ffffff;
+  --promptlab-tool-text: #252b27;
+  --promptlab-tool-line: #dde5df;
+  --promptlab-tool-subtle: #f3f6f4;
+  --promptlab-tool-mint: #167553;
 }
 
 #promptlab-input-overlay {
@@ -25,610 +30,181 @@
   transition: opacity 90ms ease;
   will-change: left, top, width, height, opacity;
 }
-
-#promptlab-input-overlay::before,
-#promptlab-input-overlay::after {
-  content: "";
-  position: absolute;
-  inset: 0;
-  pointer-events: none;
-  opacity: 0;
-}
-
 #promptlab-input-overlay.is-focused,
 #promptlab-input-overlay.is-ready,
-#promptlab-input-overlay.is-improving {
-  opacity: 1;
-}
+#promptlab-input-overlay.is-improving { opacity: 1; }
 
 #promptlab-input-ring {
   position: absolute;
-  inset: -5px;
+  inset: -4px;
   overflow: hidden;
-  border: 1.5px solid rgba(var(--promptlab-accent-rgb), 0.56);
-  border-radius: calc(var(--promptlab-input-radius, 16px) + 4px);
+  border: 1.5px solid rgba(var(--promptlab-accent-rgb), .42);
+  border-radius: calc(var(--promptlab-input-radius, 16px) + 3px);
   background: transparent;
-  box-shadow: 0 0 0 1px rgba(var(--promptlab-accent-light-rgb), 0.2), 0 0 22px rgba(var(--promptlab-accent-rgb), 0.18), 0 12px 34px rgba(var(--promptlab-accent-dark-rgb), 0.13);
-  transition: border-color 100ms ease, box-shadow 100ms ease, transform 100ms ease;
-  will-change: border-color, box-shadow, transform;
+  box-shadow: 0 0 0 2px rgba(var(--promptlab-accent-rgb), .04);
+  transition: border-color 160ms ease, box-shadow 160ms ease;
 }
-
 #promptlab-input-overlay.is-focused #promptlab-input-ring {
-  border-color: rgba(var(--promptlab-accent-rgb), 0.72);
-  box-shadow: 0 0 0 1px rgba(var(--promptlab-accent-light-rgb), 0.3), 0 0 26px rgba(var(--promptlab-accent-rgb), 0.24), 0 12px 34px rgba(var(--promptlab-accent-dark-rgb), 0.16);
+  border-color: rgba(var(--promptlab-accent-rgb), .65);
+  box-shadow: 0 0 0 3px rgba(var(--promptlab-accent-rgb), .07);
 }
-
 #promptlab-input-overlay.is-ready #promptlab-input-ring {
-  border-color: rgba(var(--promptlab-accent-rgb), 0.9);
-  box-shadow: 0 0 0 1px rgba(var(--promptlab-accent-light-rgb), 0.42), 0 0 32px rgba(var(--promptlab-accent-rgb), 0.34), 0 14px 38px rgba(var(--promptlab-accent-dark-rgb), 0.2);
+  border-color: rgba(var(--promptlab-accent-rgb), .72);
+  box-shadow: 0 0 0 3px rgba(var(--promptlab-accent-rgb), .08), 0 5px 16px rgba(var(--promptlab-accent-dark-rgb), .08);
 }
-
 #promptlab-input-overlay.is-improving #promptlab-input-ring {
-  border-color: rgba(var(--promptlab-accent-rgb), 0.34);
-  box-shadow:
-    0 0 0 1px rgba(var(--promptlab-accent-light-rgb), 0.12),
-    0 0 24px rgba(var(--promptlab-accent-rgb), 0.2),
-    0 12px 34px rgba(var(--promptlab-accent-dark-rgb), 0.12);
+  border-color: rgba(var(--promptlab-accent-rgb), .28);
+  box-shadow: 0 0 0 3px rgba(var(--promptlab-accent-rgb), .04);
 }
+.promptlab-ring-orbit { display: none; }
 
-#promptlab-input-ring::before {
-  content: "";
-  position: absolute;
-  pointer-events: none;
-  border-radius: inherit;
-  inset: 0;
-  padding: 2px;
-  background: linear-gradient(135deg, rgba(var(--promptlab-accent-dark-rgb), 0.22), rgba(var(--promptlab-accent-light-rgb), 0.72), rgba(var(--promptlab-accent-rgb), 0.34));
-  opacity: 0.44;
-  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
-  -webkit-mask-composite: xor;
-  mask-composite: exclude;
-  will-change: background-position, opacity;
-}
-
+/* An indeterminate edge sweep, not a fabricated completion percentage. */
 #promptlab-input-ring::after {
-  position: absolute;
-  inset: 3px;
-  border-radius: calc(var(--promptlab-input-radius, 16px) + 1px);
-  box-shadow: inset 0 0 18px rgba(var(--promptlab-accent-rgb), 0.18);
   content: "";
-  opacity: 0;
-  pointer-events: none;
-}
-
-.promptlab-ring-orbit {
   position: absolute;
-  inset: -3px;
-  width: calc(100% + 6px);
-  height: calc(100% + 6px);
-  overflow: visible;
+  bottom: 1px;
+  left: 20px;
+  width: calc(100% - 40px);
+  height: 2px;
   opacity: 0;
-  pointer-events: none;
-}
-
-.promptlab-ring-orbit rect {
-  x: 3px;
-  y: 3px;
-  width: calc(100% - 6px);
-  height: calc(100% - 6px);
-  rx: calc(var(--promptlab-input-radius, 16px) + 4px);
-  ry: calc(var(--promptlab-input-radius, 16px) + 4px);
-  fill: none;
-  vector-effect: non-scaling-stroke;
-}
-
-.promptlab-ring-track {
-  stroke: rgba(var(--promptlab-accent-rgb), 0.22);
-  stroke-width: 1;
-}
-
-.promptlab-ring-trace {
-  stroke-linecap: round;
-  will-change: stroke-dashoffset, opacity;
-}
-
-.promptlab-ring-trace-primary {
-  stroke: rgba(var(--promptlab-accent-light-rgb), 0.98);
-  stroke-width: 2.8;
-  stroke-dasharray: 14 86;
-  filter: drop-shadow(0 0 5px rgba(var(--promptlab-accent-rgb), 0.9));
-}
-
-.promptlab-ring-trace-secondary {
-  stroke: rgba(var(--promptlab-accent-rgb), 0.82);
-  stroke-width: 2;
-  stroke-dasharray: 7 93;
-  stroke-dashoffset: -48;
-  filter: drop-shadow(0 0 4px rgba(var(--promptlab-accent-rgb), 0.7));
-}
-
-#promptlab-input-overlay.is-ready #promptlab-input-ring::before {
-  opacity: 0.66;
-}
-
-#promptlab-input-overlay.is-improving #promptlab-input-ring::before {
-  background: linear-gradient(
-    135deg,
-    rgba(var(--promptlab-accent-dark-rgb), 0.16),
-    rgba(var(--promptlab-accent-light-rgb), 0.48),
-    rgba(var(--promptlab-accent-rgb), 0.18)
-  );
-  opacity: 0.38;
-}
-
-#promptlab-input-overlay.is-improving #promptlab-input-ring::after {
-  box-shadow: inset 0 0 18px rgba(var(--promptlab-accent-rgb), 0.16);
-  opacity: 0.48;
-}
-
-#promptlab-input-overlay.is-improving .promptlab-ring-orbit {
-  opacity: 1;
-}
-
-#promptlab-input-overlay.is-improving .promptlab-ring-trace-primary {
-  animation: promptlab-edge-run 2.05s linear infinite;
-  stroke: rgba(var(--promptlab-accent-light-rgb), 0.72);
-  stroke-dasharray: 24 76;
-  stroke-width: 2.4;
-  filter: drop-shadow(0 0 5px rgba(var(--promptlab-accent-rgb), 0.62));
-}
-
-#promptlab-input-overlay.is-improving .promptlab-ring-trace-secondary {
-  animation: promptlab-edge-run 2.05s linear -90ms infinite;
-  stroke: rgba(255, 255, 255, 0.98);
-  stroke-dasharray: 2 98;
-  stroke-width: 3.8;
-  stroke-opacity: 1;
-  filter: drop-shadow(0 0 8px rgba(var(--promptlab-accent-rgb), 0.96));
-}
-
-#promptlab-input-overlay.is-shortcut-pulse #promptlab-input-ring {
-  animation: promptlab-shortcut-hit 560ms cubic-bezier(0.16, 1, 0.3, 1);
-}
-
-#promptlab-input-overlay.is-shortcut-pulse #promptlab-input-ring::before {
-  animation: promptlab-shortcut-sheen 560ms cubic-bezier(0.22, 1, 0.36, 1);
-  background: linear-gradient(
-    90deg,
-    transparent 0%,
-    rgba(var(--promptlab-accent-light-rgb), 0.18) 24%,
-    rgba(255, 255, 255, 0.98) 50%,
-    rgba(var(--promptlab-accent-light-rgb), 0.22) 76%,
-    transparent 100%
-  );
-  background-position: -65% 0;
+  background: linear-gradient(90deg, transparent, rgba(var(--promptlab-accent-rgb), .85), rgba(var(--promptlab-accent-light-rgb), .9), transparent);
+  background-size: 40% 100%;
   background-repeat: no-repeat;
-  background-size: 42% 100%;
 }
-
-#promptlab-input-overlay.is-shortcut-pulse #promptlab-input-ring::after {
-  animation: promptlab-shortcut-flash 560ms cubic-bezier(0.16, 1, 0.3, 1);
+#promptlab-input-overlay.is-improving #promptlab-input-ring::after {
+  opacity: 1;
+  animation: promptlab-edge-flow 2.2s cubic-bezier(.4,0,.2,1) infinite;
 }
-
+#promptlab-input-overlay.is-shortcut-pulse #promptlab-input-ring {
+  animation: promptlab-shortcut-hit 480ms cubic-bezier(.2,.8,.2,1);
+}
 #promptlab-inline-chip {
   position: absolute;
-  right: 14px;
-  top: -34px;
+  right: 10px;
+  top: -37px;
   display: inline-flex;
   align-items: center;
-  max-width: min(220px, calc(100vw - 32px));
+  gap: 8px;
+  max-width: min(244px, calc(100vw - 24px));
   min-height: 28px;
   padding: 4px;
-  border: 1px solid rgba(196, 181, 253, 0.72);
-  border-radius: 8px;
-  background: rgba(30, 13, 58, 0.94);
-  color: #ffffff;
-  font-size: 11px;
-  font-weight: 650;
-  box-shadow: 0 12px 30px rgba(88, 28, 135, 0.28);
-  cursor: pointer;
-  overflow: hidden;
-  opacity: 0;
-  pointer-events: auto;
-  transform: translateY(3px);
-  transition: opacity 160ms ease, transform 160ms ease, border-color 160ms ease, box-shadow 160ms ease;
-  animation: promptlab-inline-chip-glide 220ms cubic-bezier(0.16, 1, 0.3, 1);
-}
-
-#promptlab-input-overlay.is-ready #promptlab-inline-chip,
-#promptlab-input-overlay.is-focused #promptlab-inline-chip {
-  opacity: 1;
-  transform: translateY(0);
-}
-
-#promptlab-input-overlay.is-improving #promptlab-inline-chip {
-  min-width: 0;
-  padding: 5px 7px 5px 6px;
-  opacity: 1;
-  border-color: rgba(var(--promptlab-accent-light-rgb), 0.46);
-  background: linear-gradient(180deg, rgba(32, 32, 38, 0.96), rgba(15, 15, 18, 0.94));
-  box-shadow:
-    0 0 0 1px rgba(var(--promptlab-accent-rgb), 0.08),
-    0 10px 24px rgba(0, 0, 0, 0.22),
-    0 0 20px rgba(var(--promptlab-accent-rgb), 0.16);
-  backdrop-filter: blur(14px) saturate(1.25);
-  pointer-events: none;
-  transform: translateY(0);
-}
-
-#promptlab-input-overlay.is-improving #promptlab-inline-chip::after {
-  content: "";
-  position: absolute;
-  right: 7px;
-  bottom: 0;
-  left: 7px;
-  height: 1px;
-  border-radius: 999px;
-  background: linear-gradient(90deg, transparent, rgba(var(--promptlab-accent-light-rgb), 0.76), #ffffff, transparent);
-  pointer-events: none;
-  transform: translateX(-125%);
-  animation: promptlab-chip-glint 1.8s cubic-bezier(0.4, 0, 0.2, 1) infinite;
-}
-
-#promptlab-inline-chip:hover {
-  border-color: rgba(233, 213, 255, 0.98);
-  box-shadow: 0 0 28px rgba(168, 85, 247, 0.52), 0 12px 30px rgba(88, 28, 135, 0.3);
-  color: #f5f3ff;
-}
-
-#promptlab-inline-chip kbd {
-  min-width: 112px;
-  padding: 3px 7px;
-  border: 1px solid rgba(233, 213, 255, 0.34);
+  border: 1px solid var(--promptlab-tool-line);
   border-radius: 6px;
-  background: rgba(255, 255, 255, 0.1);
-  color: #f3e8ff;
+  background: var(--promptlab-tool-bg);
+  color: var(--promptlab-tool-text);
+  box-shadow: 0 3px 12px #172b2010;
   font-size: 11px;
-  font-weight: 650;
-  text-align: center;
-  white-space: nowrap;
+  font-weight: 600;
+  cursor: pointer;
+  opacity: 0;
+  pointer-events: none;
+  transform: translateY(3px);
+  transition: opacity 160ms ease, transform 180ms cubic-bezier(.2,.8,.2,1), border-color 140ms ease;
 }
-
+#promptlab-input-overlay.is-ready #promptlab-inline-chip,
+#promptlab-input-overlay.is-focused #promptlab-inline-chip { opacity: 1; transform: translateY(0); pointer-events: auto; }
+#promptlab-inline-chip:hover { border-color: rgba(var(--promptlab-accent-rgb), .55); }
+#promptlab-inline-chip:focus-visible { outline: 2px solid var(--promptlab-tool-mint); outline-offset: 3px; }
+#promptlab-inline-chip kbd { display: inline-flex; gap: 3px; font: inherit; }
+#promptlab-inline-chip kbd span {
+  display: grid;
+  place-items: center;
+  min-width: 21px;
+  height: 20px;
+  padding: 0 4px;
+  border-radius: 3px;
+  background: var(--promptlab-tool-subtle);
+  color: var(--promptlab-tool-text);
+  font-size: 11px;
+  line-height: 1;
+}
 .promptlab-inline-progress,
-.promptlab-inline-progress-label {
-  display: none;
-}
-
-#promptlab-input-overlay.is-improving #promptlab-inline-chip kbd {
-  display: none;
-}
-
+.promptlab-inline-progress-label { display: none; }
+#promptlab-input-overlay.is-improving #promptlab-inline-chip { opacity: 1; padding: 7px 11px; pointer-events: none; transform: translateY(0); }
+#promptlab-input-overlay.is-improving #promptlab-inline-chip kbd { display: none; }
 #promptlab-input-overlay.is-improving .promptlab-inline-progress {
-  position: relative;
-  z-index: 1;
-  display: inline-block;
-  flex: 0 0 auto;
-  width: 18px;
-  height: 15px;
+  display: flex;
+  flex: 0 0 16px;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  width: 16px;
+  height: 14px;
 }
-
 #promptlab-input-overlay.is-improving .promptlab-inline-progress i {
-  position: absolute;
   display: block;
-  background: linear-gradient(135deg, #ffffff, rgba(var(--promptlab-accent-light-rgb), 0.78));
-  clip-path: polygon(50% 0, 61% 39%, 100% 50%, 61% 61%, 50% 100%, 39% 61%, 0 50%, 39% 39%);
-  filter: drop-shadow(0 0 5px rgba(var(--promptlab-accent-rgb), 0.82));
+  width: 3px;
+  height: 12px;
+  border-radius: 2px;
+  background: var(--promptlab-tool-mint);
+  transform: scaleY(.4);
+  animation: promptlab-refine-bars 1.2s cubic-bezier(.4,0,.2,1) infinite;
 }
-
-#promptlab-input-overlay.is-improving .promptlab-inline-progress i:first-child {
-  top: 1px;
-  left: 1px;
-  width: 11px;
-  height: 11px;
-  animation: promptlab-sparkle-main 1.65s cubic-bezier(0.4, 0, 0.2, 1) infinite;
-}
-
-#promptlab-input-overlay.is-improving .promptlab-inline-progress i:last-child {
-  right: 0;
-  bottom: 0;
-  width: 6px;
-  height: 6px;
-  animation: promptlab-sparkle-small 1.65s cubic-bezier(0.4, 0, 0.2, 1) infinite;
-}
-
+#promptlab-input-overlay.is-improving .promptlab-inline-progress i:nth-child(2) { animation-delay: -1s; }
+#promptlab-input-overlay.is-improving .promptlab-inline-progress i:nth-child(3) { animation-delay: -.8s; }
 #promptlab-input-overlay.is-improving .promptlab-inline-progress-label {
-  position: relative;
-  z-index: 1;
-  display: inline;
+  display: block;
   min-width: 0;
-  padding: 0 3px 0 2px;
-  overflow: hidden;
-  background: linear-gradient(
-    90deg,
-    rgba(255, 255, 255, 0.58) 0%,
-    #ffffff 32%,
-    rgba(var(--promptlab-accent-light-rgb), 0.98) 50%,
-    #ffffff 68%,
-    rgba(255, 255, 255, 0.58) 100%
-  );
-  background-position: 130% 0;
-  background-size: 240% 100%;
-  background-clip: text;
-  color: transparent;
-  line-height: 1.2;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  animation: promptlab-text-shimmer 2.2s linear infinite;
+  color: var(--promptlab-tool-text);
+  line-height: 1.35;
+  overflow-wrap: anywhere;
 }
+#promptlab-root:has(#promptlab-undo-toast:not([hidden])) #promptlab-inline-chip { opacity: 0; pointer-events: none; }
 
 #promptlab-undo-toast {
   position: fixed;
   z-index: 2147483647;
   display: flex;
   align-items: center;
-  gap: 9px;
+  gap: 8px;
   max-width: min(360px, calc(100vw - 24px));
-  min-height: 40px;
-  padding: 4px 4px 4px 10px;
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  border-radius: 10px;
-  background: rgba(20, 20, 24, 0.92);
-  color: rgba(255, 255, 255, 0.94);
-  box-shadow:
-    0 16px 36px rgba(0, 0, 0, 0.3),
-    0 0 0 1px rgba(var(--promptlab-accent-rgb), 0.08),
-    0 0 24px rgba(var(--promptlab-accent-rgb), 0.12);
-  backdrop-filter: blur(18px) saturate(1.2);
-  font-size: 12px;
+  min-height: 36px;
+  padding: 4px 5px 4px 9px;
+  border: 1px solid var(--promptlab-tool-line);
+  border-radius: 8px;
+  background: var(--promptlab-tool-bg);
+  color: var(--promptlab-tool-text);
+  box-shadow: 0 6px 24px #172b2018;
+  font-size: 11px;
 }
-
-#promptlab-undo-toast[hidden] {
-  display: none;
-}
-
-#promptlab-undo-toast:not([hidden]) {
-  animation: promptlab-toast-in 280ms cubic-bezier(0.16, 1, 0.3, 1);
-}
-
-#promptlab-undo-toast .promptlab-toast-check {
-  position: relative;
-  flex: 0 0 auto;
-  width: 18px;
-  height: 18px;
-  overflow: visible;
-  border: 1px solid rgba(var(--promptlab-accent-light-rgb), 0.52);
-  border-radius: 50%;
-  background: rgba(var(--promptlab-accent-rgb), 0.18);
-  box-shadow: 0 0 12px rgba(var(--promptlab-accent-rgb), 0.22);
-}
-
-#promptlab-undo-toast .promptlab-toast-check::after {
-  content: "";
-  position: absolute;
-  left: 5px;
-  top: 3px;
-  width: 5px;
-  height: 8px;
-  border: solid rgba(255, 255, 255, 0.96);
-  border-width: 0 1.5px 1.5px 0;
-  transform: rotate(45deg);
-}
-
-#promptlab-undo-toast .promptlab-toast-message {
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  font-weight: 570;
-}
-
+#promptlab-undo-toast[hidden] { display: none; }
+#promptlab-undo-toast:not([hidden]) { animation: promptlab-toast-in 240ms cubic-bezier(.2,.8,.2,1); }
+#promptlab-undo-toast .promptlab-toast-check { display: grid; place-items: center; flex: 0 0 21px; width: 21px; height: 21px; border-radius: 50%; background: #d4f7e5; color: #167553; }
+#promptlab-undo-toast .promptlab-toast-check svg { width: 13px; height: 13px; }
+#promptlab-undo-toast .promptlab-toast-message { min-width: 0; overflow-wrap: anywhere; line-height: 1.35; font-weight: 550; }
 #promptlab-undo-toast button {
-  position: relative;
-  flex: 0 0 auto;
   display: inline-flex;
+  flex: 0 0 auto;
   align-items: center;
+  justify-content: center;
   gap: 5px;
-  min-height: 32px;
-  padding: 0 10px;
+  min-height: 27px;
+  padding: 0 8px;
   border: 0;
-  border-left: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: 0 7px 7px 0;
-  background: transparent;
-  color: rgba(var(--promptlab-accent-light-rgb), 0.96);
-  font-size: 12px;
+  border-radius: 4px;
+  background: var(--promptlab-tool-subtle);
+  color: var(--promptlab-tool-text);
+  font-size: 11px;
   font-weight: 650;
   cursor: pointer;
   transition: background 140ms ease, color 140ms ease;
 }
+#promptlab-undo-toast button:hover { background: #d4f7e5; color: #167553; }
+#promptlab-undo-toast button:focus-visible { outline: 2px solid var(--promptlab-tool-mint); outline-offset: 2px; }
+#promptlab-undo-toast .promptlab-toast-undo-icon { width: 13px; height: 13px; }
 
-#promptlab-undo-toast button:hover {
-  background: rgba(255, 255, 255, 0.08);
-  color: #ffffff;
+@keyframes promptlab-edge-flow { from { background-position: -70% 0; } to { background-position: 170% 0; } }
+@keyframes promptlab-refine-bars { 0%,100% { transform: scaleY(.4); } 40% { transform: scaleY(1); } }
+@keyframes promptlab-shortcut-hit { 40% { border-color: rgba(var(--promptlab-accent-rgb), .9); box-shadow: 0 0 0 4px rgba(var(--promptlab-accent-rgb), .1); } }
+@keyframes promptlab-toast-in { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
+
+@media (prefers-color-scheme: dark) {
+  #promptlab-root { --promptlab-tool-bg: #252b27; --promptlab-tool-text: #f4f6f4; --promptlab-tool-line: #3c4640; --promptlab-tool-subtle: #333c36; --promptlab-tool-mint: #94dfb9; }
 }
-
-#promptlab-undo-toast button:active {
-  background: rgba(var(--promptlab-accent-rgb), 0.18);
-}
-
-#promptlab-undo-toast .promptlab-toast-undo-icon {
-  position: relative;
-  width: 11px;
-  height: 11px;
-  overflow: visible;
-  border: 1.4px solid currentColor;
-  border-right-color: transparent;
-  border-radius: 50%;
-}
-
-#promptlab-undo-toast .promptlab-toast-undo-icon::before {
-  content: "";
-  position: absolute;
-  left: -2px;
-  top: -2px;
-  width: 4px;
-  height: 4px;
-  border-top: 1.4px solid currentColor;
-  border-left: 1.4px solid currentColor;
-  transform: rotate(-18deg);
-}
-
-@keyframes promptlab-edge-run {
-  from {
-    stroke-dashoffset: 100;
-  }
-
-  to {
-    stroke-dashoffset: 0;
-  }
-}
-
-@keyframes promptlab-shortcut-hit {
-  0% {
-    border-color: rgba(var(--promptlab-accent-rgb), 0.54);
-    box-shadow: 0 0 0 1px rgba(var(--promptlab-accent-light-rgb), 0.18), 0 0 18px rgba(var(--promptlab-accent-rgb), 0.16);
-  }
-
-  28% {
-    border-color: rgba(var(--promptlab-accent-light-rgb), 0.98);
-    box-shadow: 0 0 0 1px rgba(var(--promptlab-accent-light-rgb), 0.58), 0 0 34px rgba(var(--promptlab-accent-rgb), 0.42);
-  }
-
-  100% {
-    border-color: rgba(var(--promptlab-accent-rgb), 0.34);
-    box-shadow: 0 0 0 1px rgba(var(--promptlab-accent-light-rgb), 0.12), 0 0 24px rgba(var(--promptlab-accent-rgb), 0.2);
-  }
-}
-
-@keyframes promptlab-shortcut-sheen {
-  0% {
-    background-position: -65% 0;
-    opacity: 0;
-  }
-
-  18% {
-    opacity: 0.96;
-  }
-
-  100% {
-    background-position: 165% 0;
-    opacity: 0;
-  }
-}
-
-@keyframes promptlab-shortcut-flash {
-  0%,
-  100% {
-    opacity: 0;
-  }
-
-  32% {
-    box-shadow: inset 0 0 24px rgba(var(--promptlab-accent-rgb), 0.26);
-    opacity: 0.72;
-  }
-}
-
-@keyframes promptlab-chip-glint {
-  0%,
-  18% {
-    transform: translateX(-125%);
-  }
-
-  72%,
-  100% {
-    transform: translateX(125%);
-  }
-}
-
-@keyframes promptlab-sparkle-main {
-  0%,
-  100% {
-    opacity: 0.48;
-    transform: scale(0.72) rotate(-8deg);
-  }
-
-  42% {
-    opacity: 1;
-    transform: scale(1) rotate(0deg);
-  }
-}
-
-@keyframes promptlab-sparkle-small {
-  0%,
-  100% {
-    opacity: 1;
-    transform: scale(1) rotate(0deg);
-  }
-
-  42% {
-    opacity: 0.36;
-    transform: scale(0.62) rotate(12deg);
-  }
-}
-
-@keyframes promptlab-text-shimmer {
-  from {
-    background-position: 130% 0;
-  }
-
-  to {
-    background-position: -30% 0;
-  }
-}
-
-@keyframes promptlab-toast-in {
-  from {
-    opacity: 0;
-    transform: translateY(8px) scale(0.98);
-  }
-
-  to {
-    opacity: 1;
-    transform: translateY(0) scale(1);
-  }
-}
-
 @media (prefers-reduced-motion: reduce) {
-  #promptlab-input-overlay.is-improving #promptlab-input-ring,
-  #promptlab-input-overlay.is-improving #promptlab-input-ring::before,
-  #promptlab-input-overlay.is-improving #promptlab-input-ring::after,
-  #promptlab-input-overlay.is-improving .promptlab-ring-trace {
-    animation: none;
-  }
-  #promptlab-input-overlay.is-shortcut-pulse #promptlab-input-ring,
-  #promptlab-input-overlay.is-shortcut-pulse #promptlab-input-ring::before,
-  #promptlab-input-overlay.is-shortcut-pulse #promptlab-input-ring::after,
-  #promptlab-input-overlay.is-shortcut-pulse .promptlab-ring-trace {
-    animation: none;
-  }
-  #promptlab-input-overlay.is-improving .promptlab-ring-trace,
-  #promptlab-panel.is-open::before,
-  .promptlab-status.is-busy::before,
-  .promptlab-status.is-busy,
-  .promptlab-status.is-busy::after,
-  .promptlab-status.is-success,
-  .promptlab-status.is-warning,
-  .promptlab-status.is-error,
-  .promptlab-status[data-variant="default"],
-  .promptlab-status.is-variant-transition,
-  .promptlab-status.is-variant-transition::before,
-  .promptlab-status.is-variant-transition::after,
-  .promptlab-primary:hover::after,
-  .promptlab-status::after,
-  .promptlab-status-text,
-  #promptlab-input-overlay.is-improving .promptlab-inline-progress i,
-  #promptlab-input-overlay.is-improving #promptlab-inline-chip::after,
-  #promptlab-input-overlay.is-improving .promptlab-inline-progress-label,
-  #promptlab-undo-toast:not([hidden]) {
-    animation: none;
-  }
-
-  #promptlab-input-overlay.is-improving #promptlab-input-ring::before {
-    background: rgba(var(--promptlab-accent-light-rgb), 0.88);
-  }
-
-  #promptlab-input-overlay.is-improving #promptlab-input-ring::after {
-    opacity: 0.5;
-  }
-
-  #promptlab-input-overlay.is-improving .promptlab-ring-trace-primary {
-    stroke-dashoffset: -18;
-  }
-
-  #promptlab-input-overlay.is-improving .promptlab-ring-trace-secondary {
-    stroke-dashoffset: -62;
-  }
+  #promptlab-root *, #promptlab-root *::before, #promptlab-root *::after { animation: none !important; transition: none !important; }
+  #promptlab-input-overlay.is-improving #promptlab-input-ring::after { background-position: 50% 0; }
+  #promptlab-input-overlay.is-improving .promptlab-inline-progress i { transform: scaleY(.7); }
 }
 
 #promptlab-panel {

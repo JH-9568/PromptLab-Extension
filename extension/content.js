@@ -285,7 +285,21 @@
     if (!input) return null;
 
     const editable = getEditableTarget(input);
-    const editableRect = (editable || input).getBoundingClientRect();
+    const fullEditableRect = (editable || input).getBoundingClientRect();
+    let visibleTop = fullEditableRect.top;
+    let visibleBottom = fullEditableRect.bottom;
+    // Scrolling a long ProseMirror document moves its bounds outside the composer.
+    // Score frame candidates against the visible part, not the full document.
+    let clipAncestor = (editable || input).parentElement;
+    for (let depth = 0; clipAncestor && clipAncestor !== document.body && depth < 9; depth += 1) {
+      if (/(auto|hidden|clip|scroll)/.test(getComputedStyle(clipAncestor).overflowY)) {
+        const clipRect = clipAncestor.getBoundingClientRect();
+        visibleTop = Math.max(visibleTop, clipRect.top);
+        visibleBottom = Math.min(visibleBottom, clipRect.bottom);
+      }
+      clipAncestor = clipAncestor.parentElement;
+    }
+    const editableRect = { ...fullEditableRect.toJSON(), top: visibleTop, bottom: visibleBottom, height: Math.max(0, visibleBottom - visibleTop) };
     const namedFrame = input.closest('form, [role="form"], [data-testid*="composer" i], [class*="composer" i], rich-textarea');
     const candidates = [];
 
@@ -802,6 +816,9 @@
     overlay.classList.toggle('is-focused', isFocused);
     overlay.classList.toggle('is-ready', Boolean(prompt) && !state.inlineImproving);
     overlay.classList.toggle('is-improving', state.inlineImproving);
+    const chip = document.querySelector('#promptlab-inline-chip');
+    chip?.setAttribute('aria-label', state.inlineImproving ? UI_TEXT.improvingInline : UI_TEXT.shortcutHint);
+    chip?.setAttribute('aria-busy', String(state.inlineImproving));
     state.overlayTarget = target;
     state.overlayVisible = true;
   }
@@ -815,7 +832,7 @@
     if (!target) return;
 
     const rect = target.getBoundingClientRect();
-    toast.style.left = `${Math.round(Math.min(rect.right - toast.offsetWidth, window.innerWidth - toast.offsetWidth - 12))}px`;
+    toast.style.left = `${Math.round(Math.max(12, Math.min(rect.right - toast.offsetWidth, window.innerWidth - toast.offsetWidth - 12)))}px`;
     toast.style.top = `${Math.round(Math.max(12, rect.top - toast.offsetHeight - 10))}px`;
   }
 
@@ -849,6 +866,8 @@
   }
 
   async function requestPromptImprovement(prompt, category, attachmentContext) {
+    const stored = await chrome.storage.local.get([PromptLabSettings.storageKey]);
+    const settings = PromptLabSettings.normalize(stored[PromptLabSettings.storageKey]);
     const response = await fetch(`${SERVER_URL}/api/improve`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -858,7 +877,11 @@
         original_prompt: prompt,
         task_category: category,
         client_language: CLIENT_LANGUAGE,
-        attachment_context: attachmentContext
+        attachment_context: attachmentContext,
+        rewrite_settings: {
+          mode: settings.mode,
+          instructions: settings.instructionsEnabled ? settings.instructions : ''
+        }
       })
     });
 
@@ -1098,15 +1121,15 @@
           </svg>
         </div>
         <button id="promptlab-inline-chip" type="button" title="${escapeHtml(UI_TEXT.shortcutHint)}">
-          <kbd>${escapeHtml(getShortcutLabel())}</kbd>
-          <span class="promptlab-inline-progress" aria-hidden="true"><i></i><i></i></span>
-          <span class="promptlab-inline-progress-label">${escapeHtml(UI_TEXT.improvingInline)}</span>
+          <kbd aria-label="${escapeHtml(getShortcutLabel())}">${(IS_MAC ? ['⌘', '⇧', ';'] : ['Ctrl', '⇧', '.']).map((key) => `<span>${escapeHtml(key)}</span>`).join('')}</kbd>
+          <span class="promptlab-inline-progress" aria-hidden="true"><i></i><i></i><i></i></span>
+          <span class="promptlab-inline-progress-label" role="status" aria-live="polite">${escapeHtml(UI_TEXT.improvingInline)}</span>
         </button>
       </div>
       <section id="promptlab-undo-toast" hidden aria-live="polite">
-        <span class="promptlab-toast-check" aria-hidden="true"></span>
+        <span class="promptlab-toast-check" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m20 6-11 11-5-5"/></svg></span>
         <span class="promptlab-toast-message">${escapeHtml(UI_TEXT.improvedApplied)}</span>
-        <button type="button"><span class="promptlab-toast-undo-icon" aria-hidden="true"></span>${escapeHtml(UI_TEXT.undoImprovement)}</button>
+        <button type="button" title="${escapeHtml(UI_TEXT.undoImprovement)}"><svg class="promptlab-toast-undo-icon" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 14 4 9l5-5"/><path d="M4 9h10.5a5.5 5.5 0 0 1 5.5 5.5a5.5 5.5 0 0 1-5.5 5.5H11"/></svg>${escapeHtml(UI_TEXT.undoImprovement)}</button>
       </section>
       <section id="promptlab-panel" hidden>
       <header class="promptlab-header">

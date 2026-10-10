@@ -10,11 +10,14 @@ PromptLab은 ChatGPT, Gemini, Claude의 입력창에서 프롬프트를 더 명�
 - 긴 프롬프트와 첨부 이미지에도 맞춰지는 반응형 입력창 테두리
 - 10가지 입력창 테두리 색상
 - 한국어 및 영어 UI
+- 가볍게 / 균형 / 자세히 개선 강도 선택
+- 브라우저에 저장하는 기본 조건과 적용 스위치
 
-<img width="1280" height="800" alt="PromptLab shortcut" src="./store-assets/screenshots-0.1.8-en/promptlab-01-shortcut.png" />
-<img width="1280" height="800" alt="PromptLab improving a prompt" src="./store-assets/screenshots-0.1.8-en/promptlab-02-improving.png" />
-<img width="1280" height="800" alt="PromptLab undo action" src="./store-assets/screenshots-0.1.8-en/promptlab-03-undo.png" />
-<img width="1280" height="800" alt="PromptLab border color setting" src="./store-assets/screenshots-0.1.8-en/promptlab-04-customize-color.png" />
+<img width="1280" height="800" alt="PromptLab shortcut" src="./store-assets/campaign-0.1.9-v3/screenshots-en/promptlab-01-shortcut.png" />
+<img width="1280" height="800" alt="PromptLab rewrite and Undo" src="./store-assets/campaign-0.1.9-v3/screenshots-en/promptlab-02-rewrite-and-undo.png" />
+<img width="1280" height="800" alt="PromptLab rewrite strength" src="./store-assets/campaign-0.1.9-v3/screenshots-en/promptlab-03-rewrite-strength.png" />
+<img width="1280" height="800" alt="PromptLab saved preferences" src="./store-assets/campaign-0.1.9-v3/screenshots-en/promptlab-04-my-preferences.png" />
+<img width="1280" height="800" alt="PromptLab border colors" src="./store-assets/campaign-0.1.9-v3/screenshots-en/promptlab-05-border-colors.png" />
 
 ## 사용 방법
 
@@ -29,6 +32,14 @@ PromptLab은 ChatGPT, Gemini, Claude의 입력창에서 프롬프트를 더 명�
 1. Chrome 도구 모음에서 PromptLab 아이콘을 선택합니다.
 2. `입력창 테두리 색상`에서 원하는 색상을 선택합니다.
 3. 열려 있는 AI 페이지로 돌아가면 선택한 색상이 자동으로 적용됩니다.
+
+## 개선 설정
+
+Chrome 도구 모음에서 PromptLab을 열고 개선 강도를 선택하세요. `가볍게`는 표현 중심으로, `균형`은 필요한 조건을 보완하고, `자세히`는 관련된 구조와 기준을 구체화합니다. 기본값은 `균형`입니다.
+
+`내 기본 조건`에 원하는 답변 조건을 최대 600자까지 입력한 뒤 `조건 저장`을 누르세요. 저장하면 적용 스위치가 켜집니다. 스위치를 꺼도 저장된 조건은 유지되며, 내용을 지우고 저장하면 삭제됩니다. 원문에 명시한 조건이 저장된 기본 조건보다 우선합니다.
+
+기본 조건은 현재 브라우저의 로컬 저장소에 보관되고, 적용이 켜져 있을 때 개선 요청과 함께 PromptLab 백엔드 및 OpenAI에 전송됩니다. 기본 조건 전문은 분석 로그 필드에 저장하지 않습니다.
 
 ## 데이터 처리
 
@@ -90,6 +101,8 @@ PromptLab is a Chrome extension that turns prompts into clearer, more actionable
 - Uses a responsive input border for long prompts and attachments
 - Offers 10 customizable input border colors
 - Supports Korean and English interfaces
+- Light, Balanced, and Detailed rewrite modes
+- Locally saved preferences with an on/off switch
 
 ## How To Use
 
@@ -104,6 +117,14 @@ PromptLab is a Chrome extension that turns prompts into clearer, more actionable
 1. Select the PromptLab icon in the Chrome toolbar.
 2. Choose a color under `Input border color`.
 3. Return to the AI tab. The selected color is applied automatically.
+
+## Rewrite Settings
+
+Open PromptLab from the Chrome toolbar to select Light, Balanced (default), or Detailed. Light focuses on wording; Balanced adds useful detail; Detailed develops relevant structure and criteria.
+
+Enter up to 600 characters under My preferences and select Save preferences. Saving enables the switch. Turning it off keeps the saved text; clearing the text and saving deletes it. Explicit requirements in the original prompt take precedence over saved preferences.
+
+Preferences are stored in this browser and sent to the PromptLab backend and OpenAI with improvement requests when enabled. The full preference text is not stored in analytics fields.
 
 ## Data Handling
 

@@ -1,0 +1,38 @@
+Better prompts. One shortcut.
+
+PromptLab is a Chrome extension that improves prompts directly in ChatGPT, Gemini, and Claude. No separate editor: keep your original intent, turn it into a clearer request, and apply the rewrite in place. Restore the original with Undo whenever needed.
+
+HOW TO USE
+1. Write a prompt on a supported AI site.
+2. Press Command+Shift+; on Mac, or Ctrl+Shift+. on Windows/Linux.
+3. Review the rewrite in your input. Select Undo to restore the original.
+
+CHOOSE YOUR REWRITE STRENGTH
+Open PromptLab from the Chrome toolbar.
+- Light: refine wording and clarity with minimal changes.
+- Balanced: add useful answer requirements. This is the default.
+- Detailed: develop relevant structure, criteria, and steps.
+
+SAVE YOUR PREFERENCES
+Save up to 600 characters of recurring preferences, such as coding language, answer format, or tone. Saving enables the switch and applies them to your next rewrite. Turn the switch off without losing the text; clear the text and save to delete it. Explicit instructions in the original prompt take precedence.
+
+CUSTOMIZE YOUR BORDER
+Chrome toolbar → PromptLab → Input border color. Choose from 10 colors; your open AI input updates automatically.
+
+KEY FEATURES
+- Works in ChatGPT, Gemini, and Claude
+- Shortcut activation and in-place rewrites
+- One-click Undo
+- Three rewrite strengths and saved preferences
+- Ten input border colors
+- Korean and English UI; light and dark popup themes
+- Responsive borders for long prompts and attachments
+
+PRIVACY
+Prompt text is sent to the PromptLab backend and OpenAI API to generate rewrites. Saved preferences stay in this browser and are sent with requests only when enabled. Full original prompts, rewritten prompts, and preference text are not stored as separate analytics fields. Analytics include limited metadata such as anonymous user/session IDs, target platform, improvement metadata, prompt hashes, and character lengths.
+
+SUPPORTED SITES
+https://chatgpt.com
+https://chat.openai.com
+https://gemini.google.com
+https://claude.ai
